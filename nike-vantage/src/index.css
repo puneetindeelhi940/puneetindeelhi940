@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@theme {
+  --color-nike-black: #111111;
+  --color-nike-dark: #0A0A0A;
+  --color-nike-surface: #1A1A1A;
+  --color-nike-surface-hover: #252525;
+  --color-nike-border: #333333;
+  --color-nike-border-light: #444444;
+  --color-nike-text: #FFFFFF;
+  --color-nike-text-secondary: #999999;
+  --color-nike-text-tertiary: #666666;
+  --color-nike-volt: #CDFF00;
+  --color-nike-volt-dim: #B8E600;
+  --color-nike-success: #00FF87;
+  --color-nike-warning: #FFB800;
+  --color-nike-error: #FF4444;
+  --color-nike-info: #00B4FF;
+  --color-nike-running: #FF6B35;
+  --color-nike-basketball: #FF3366;
+  --color-nike-lifestyle: #9B59B6;
+  --color-nike-football: #2ECC71;
+  --color-nike-training: #3498DB;
+
+  --font-nike: 'Inter', 'Helvetica Neue', 'Arial', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-nike);
+  background: var(--color-nike-dark);
+  color: var(--color-nike-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-nike-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-nike-border-light);
+}
+
+::selection {
+  background: rgba(205, 255, 0, 0.3);
+  color: white;
+}
+
+@keyframes pulse-volt {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.ai-processing {
+  background: linear-gradient(90deg, transparent 0%, rgba(205, 255, 0, 0.1) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+.volt-pulse {
+  animation: pulse-volt 3s ease-in-out infinite;
+}
+
+.volt-glow {
+  box-shadow: 0 0 20px rgba(205, 255, 0, 0.15), 0 0 40px rgba(205, 255, 0, 0.05);
+}
