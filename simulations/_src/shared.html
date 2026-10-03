@@ -1,0 +1,20 @@
+  <div class="transport" role="group" aria-label="Simulation controls">
+    <button class="btn" id="play" aria-label="Pause simulation">❚❚ Pause</button>
+    <button class="btn" id="restart" aria-label="Restart from zero">⟲ Restart</button>
+    <div class="speeds" role="group" aria-label="Playback speed">
+      <button class="btn" data-speed="1" aria-pressed="true">1×</button>
+      <button class="btn" data-speed="2" aria-pressed="false">2×</button>
+      <button class="btn" data-speed="4" aria-pressed="false">4×</button>
+    </div>
+    <div class="scrub"><input id="scrub" type="range" min="0" max="120" step="0.1" value="0" aria-label="Seek within the 2-minute cycle"></div>
+    <div class="clock" id="clock">00:00 / 02:00</div>
+    <span class="kbd">space · ← → · 1 2 4</span>
+  </div>
+  <footer class="foot">
+    <details>
+      <summary>Methods &amp; sources: the project data is simulated, the methods and thresholds are real</summary>
+      <ul id="sources"></ul>
+      <p class="disc" data-meta="disclaimer"></p>
+    </details>
+    <span class="credit">Built by Puneet Arora</span>
+  </footer>

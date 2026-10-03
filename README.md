@@ -43,6 +43,22 @@ Local-first intelligence OS with a Meeus panchang engine, Kanban, field-level ve
 
 ---
 
+## 🖥️ Live UX Sprint Simulations
+
+Two Laerdal concept studies, each running a full Double Diamond sprint in a 2-minute loop. The project data is simulated; the methods, clinical guidelines and accessibility thresholds are real.
+
+| | Mission Control | Diamond Compiler | Agent Swarm |
+|---|---|---|---|
+| **RQI**: quarterly CPR practice that fits a nursing shift | [open ▸](https://puneetindeelhi940.github.io/puneetindeelhi940/rqi/mission-control/) | [open ▸](https://puneetindeelhi940.github.io/puneetindeelhi940/rqi/double-diamond-compiler/) | [open ▸](https://puneetindeelhi940.github.io/puneetindeelhi940/rqi/agent-swarm/) |
+| **SimCapture**: AI-assisted simulation debriefing | [open ▸](https://puneetindeelhi940.github.io/puneetindeelhi940/simcapture/mission-control/) | [open ▸](https://puneetindeelhi940.github.io/puneetindeelhi940/simcapture/double-diamond-compiler/) | [open ▸](https://puneetindeelhi940.github.io/puneetindeelhi940/simcapture/agent-swarm/) |
+
+<a href="https://puneetindeelhi940.github.io/puneetindeelhi940/rqi/mission-control/"><img src="simulations/assets/rqi-mission-control.gif" alt="RQI Mission Control: six UX workstreams, live CPR telemetry and KPIs updating through a sprint" width="49%"></a>
+<a href="https://puneetindeelhi940.github.io/puneetindeelhi940/simcapture/mission-control/"><img src="simulations/assets/simcapture-mission-control.gif" alt="SimCapture Mission Control: six UX workstreams, a live patient monitor and debrief KPIs updating through a sprint" width="49%"></a>
+
+<sub>Unofficial portfolio concept studies, not affiliated with Laerdal Medical, RQI Partners or the American Heart Association. [All six simulations ▸](https://puneetindeelhi940.github.io/puneetindeelhi940/)</sub>
+
+---
+
 ## 🏢 Career Snapshot
 
 ```

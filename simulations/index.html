@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="author" content="Puneet Arora">
+<meta name="description" content="Six 2-minute simulations of UX sprints for two Laerdal concept studies: RQI CPR practice and AI-assisted debriefing in SimCapture.">
+<title>UX Sprint Simulations</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+/* Matrix terminal: near-black green ground, cream text, phosphor green reserved for highlights and live state. Single dark world by choice. */
+:root{
+  --bg:#010c07; --bg-2:#02130b; --panel:rgba(3,22,13,.9); --panel-solid:#03160d; --panel-hi:#062616;
+  --line:#0f4a2b; --line-soft:#0a3220;
+  --phos:#4dff91; --phos-2:#2fbf6a; --phos-3:#155f37;
+  --cream:#f3e9d2; --cream-2:#cfc3a6; --muted:#86a892;
+  --amber:#f2c46b; --coral:#ff8f7a; --teal:#8fd3c8;
+  --ui:'Roboto','Segoe UI',system-ui,-apple-system,sans-serif;
+  --mono:'Roboto Mono','Cascadia Mono',Consolas,ui-monospace,monospace;
+  --r:8px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg);color:var(--cream)}
+body{margin:0;font:400 14px/1.45 var(--ui);padding-inline:16px;padding-block:16px 24px;min-height:100vh}
+#rain{position:fixed;inset:0;width:100%;height:100%;opacity:.06;pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:50;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px);mix-blend-mode:multiply}
+.app{position:relative;z-index:1;max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.glow{text-shadow:0 0 8px rgba(77,255,145,.35)}
+
+/* chrome */
+.chrome{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--bg-2)}
+.dots{display:flex;gap:6px;flex:none}
+.dots i{width:10px;height:10px;border-radius:50%;background:var(--phos-3);display:block;border:1px solid var(--phos-2)}
+.dots i:first-child{background:var(--phos);box-shadow:0 0 8px var(--phos)}
+.chrome h1{margin:0;font:500 13.5px/1.2 var(--mono);color:var(--cream);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chrome h1 b{color:var(--phos);font-weight:500}
+.live{margin-left:auto;display:flex;align-items:center;gap:8px;font:500 11px var(--mono);letter-spacing:.14em;color:var(--muted);text-transform:uppercase;flex:none}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--phos);box-shadow:0 0 8px var(--phos);animation:pulse 1.4s infinite}
+.paused .live i{animation:none;background:var(--amber);box-shadow:none}
+@keyframes pulse{50%{opacity:.3}}
+
+.eyebrow{font:500 10.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.concept{display:inline-block;font:500 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--amber);border:1px solid rgba(242,196,107,.45);border-radius:4px;padding:1px 6px}
+
+/* log lines */
+.ln{white-space:pre-wrap;word-break:break-word;animation:lnin .2s ease-out}
+@keyframes lnin{from{opacity:0}to{opacity:1}}
+.ln.cmd{color:var(--cream);margin-top:6px}
+.ln.cmd .ps{color:var(--phos)}
+.ln.amb{color:var(--muted);opacity:.78;font-size:.94em}
+.caret{display:inline-block;width:.6em;height:1.05em;vertical-align:-2px;background:var(--phos);box-shadow:0 0 6px var(--phos);margin-left:1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.c-ok{color:var(--phos)} .c-warn{color:var(--amber)} .c-err{color:var(--coral)} .c-dim{color:var(--muted)}
+.c-k{color:var(--teal)} .c-hl{color:var(--bg);background:var(--phos);padding:0 4px;border-radius:3px}
+.c-q{color:var(--cream-2);font-style:italic} .c-big{color:var(--phos);font-weight:500}
+
+/* transport */
+.transport{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--bg-2)}
+.btn{font:500 12px var(--mono);color:var(--cream);background:var(--panel-hi);border:1px solid var(--line);border-radius:6px;padding:6px 10px;cursor:pointer;min-height:32px}
+.btn:hover{border-color:var(--phos)}
+.btn[aria-pressed="true"]{background:var(--phos);color:var(--bg);border-color:var(--phos)}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.speeds{display:flex;gap:4px}
+.scrub{flex:1;min-width:180px;display:flex}
+.scrub input{width:100%;accent-color:var(--phos)}
+.clock{font:500 13px var(--mono);font-variant-numeric:tabular-nums;color:var(--cream);min-width:96px;text-align:right}
+.kbd{font:400 11px var(--mono);color:var(--muted)}
+
+/* footer */
+footer.foot{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:flex-start;justify-content:space-between;color:var(--muted);font:400 12px var(--ui);padding:4px 2px}
+footer details{max-width:820px}
+footer summary{cursor:pointer;color:var(--cream-2)}
+footer ul{margin:8px 0 0;padding-left:18px;line-height:1.6}
+footer .disc{margin:8px 0 0;color:var(--muted)}
+footer .credit{font:500 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+/* svg text */
+svg text{font-family:var(--mono)}
+
+@media (max-width:720px){.kbd{display:none}}
+@media (prefers-reduced-motion:reduce){.ln{animation:none}.caret,.live i{animation:none}}
+
+/* live strip */
+.strip{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:hidden;min-width:0}
+.strip-h{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;padding:7px 12px 0}
+.strip-h .eyebrow{display:flex;align-items:center;gap:7px}
+.rec{width:7px;height:7px;border-radius:50%;background:var(--coral);display:inline-block;animation:pulse 1.2s infinite}
+.strip-r{display:flex;flex-wrap:wrap;gap:2px 14px;margin-left:auto;font:400 11.5px var(--mono);color:var(--cream);font-variant-numeric:tabular-nums;min-width:0}
+.strip-r em{font-style:normal;color:var(--muted);margin-right:3px}
+.strip-r b{font-weight:500} .strip-r .ok{color:var(--phos)} .strip-r .warn{color:var(--amber)} .strip-r .err{color:var(--coral)}
+.strip canvas{display:block;width:100%;height:96px}
+@media (prefers-reduced-motion:reduce){.rec{animation:none}}
+
+main{position:relative;z-index:1;max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:28px;padding-block:24px}
+header h1{margin:6px 0 8px;font:500 30px/1.2 var(--mono);text-wrap:balance}
+header p{margin:0;max-width:68ch;color:var(--cream-2);font-size:15px}
+section h2{margin:4px 0 12px;font:400 18px/1.35 var(--ui);color:var(--cream)}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.card{display:flex;flex-direction:column;gap:6px;padding:14px 16px;border:1px solid var(--line);border-radius:var(--r);background:var(--panel);color:var(--cream);text-decoration:none;min-width:0}
+.card:hover{border-color:var(--phos);box-shadow:0 0 18px rgba(77,255,145,.15)}
+.card .k{font:500 15px var(--mono);color:var(--phos)}
+.card .d{font-size:13px;color:var(--cream-2)}
+.card .go{margin-top:auto;font:500 12px var(--mono);color:var(--muted)}
+@media (max-width:820px){.cards{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<canvas id="rain" aria-hidden="true"></canvas>
+<main>
+  <header>
+    <span class="concept">Concept studies · simulated data</span>
+    <h1 class="glow">UX sprint simulations</h1>
+    <p>Two Laerdal use cases, each shown three ways. Every page runs a full Double Diamond sprint in a 2-minute loop, using real UX methods, clinical guidelines and accessibility thresholds.</p>
+  </header>
+  <section>
+    <div class="eyebrow">RQI</div>
+    <h2>Quarterly RQI CPR practice redesigned to fit a nursing shift</h2>
+    <div class="cards">
+      <a class="card" href="rqi/mission-control/">
+        <span class="k">Mission Control</span>
+        <span class="d">Six UX disciplines run in parallel through a 2-minute Double Diamond sprint with live KPIs and telemetry.</span>
+        <span class="go">open ▸</span>
+      </a>
+      <a class="card" href="rqi/double-diamond-compiler/">
+        <span class="k">Diamond Compiler</span>
+        <span class="d">The sprint as a compiler build log while the options in play draw the double diamond live.</span>
+        <span class="go">open ▸</span>
+      </a>
+      <a class="card" href="rqi/agent-swarm/">
+        <span class="k">Agent Swarm</span>
+        <span class="d">AI agents run the sprint with guardrails and a human design lead approving every phase.</span>
+        <span class="go">open ▸</span>
+      </a>
+    </div>
+  </section>
+  <section>
+    <div class="eyebrow">SimCapture</div>
+    <h2>AI-assisted simulation debriefing in SimCapture</h2>
+    <div class="cards">
+      <a class="card" href="simcapture/mission-control/">
+        <span class="k">Mission Control</span>
+        <span class="d">Six UX disciplines run in parallel through a 2-minute Double Diamond sprint with live KPIs and telemetry.</span>
+        <span class="go">open ▸</span>
+      </a>
+      <a class="card" href="simcapture/double-diamond-compiler/">
+        <span class="k">Diamond Compiler</span>
+        <span class="d">The sprint as a compiler build log while the options in play draw the double diamond live.</span>
+        <span class="go">open ▸</span>
+      </a>
+      <a class="card" href="simcapture/agent-swarm/">
+        <span class="k">Agent Swarm</span>
+        <span class="d">AI agents run the sprint with guardrails and a human design lead approving every phase.</span>
+        <span class="go">open ▸</span>
+      </a>
+    </div>
+  </section>
+  <footer class="foot">
+    <p class="disc">Unofficial portfolio concept studies. Not affiliated with or endorsed by Laerdal Medical, RQI Partners or the American Heart Association. Product names belong to their owners.</p>
+    <span class="credit">Built by Puneet Arora</span>
+  </footer>
+</main>
+<script>
+/* ============ matrix rain (decorative, 6% opacity) ============ */
+function startRain(){
+  const cv = document.getElementById('rain'); if (!cv) return;
+  const ctx = cv.getContext('2d'), G = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉ0123456789♥+<>=/'.split('');
+  let cols = [], fs = 15, W = 0, H = 0;
+  const size = () => { W = cv.width = innerWidth; H = cv.height = innerHeight; cols = Array.from({length: Math.ceil(W / fs)}, (_, i) => hash(i) * H / fs); ctx.fillStyle = '#010c07'; ctx.fillRect(0, 0, W, H); };
+  size(); addEventListener('resize', size);
+  const draw = () => {
+    ctx.fillStyle = 'rgba(1,12,7,.14)'; ctx.fillRect(0, 0, W, H); ctx.font = fs + 'px "Roboto Mono", monospace';
+    cols.forEach((y, i) => { const ch = G[Math.floor(Math.random() * G.length)]; ctx.fillStyle = Math.random() < .08 ? '#f3e9d2' : '#4dff91'; ctx.fillText(ch, i * fs, y * fs); cols[i] = y * fs > H && Math.random() > .975 ? 0 : y + 1; });
+  };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches){ for (let i = 0; i < 60; i++) draw(); return; }
+  let last = 0; const loop = ts => { if (ts - last > 55){ last = ts; draw(); } requestAnimationFrame(loop); }; requestAnimationFrame(loop);
+}
+
+
+const hash = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+startRain();
+</script>
+</body>
+</html>

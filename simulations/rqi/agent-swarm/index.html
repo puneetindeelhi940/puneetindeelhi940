@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="author" content="Puneet Arora">
+<meta name="description" content="Quarterly RQI CPR practice redesigned to fit a nursing shift. AI agents run the sprint with guardrails and a human design lead approving every phase. Concept study with simulated data.">
+<title>RQI Agent Swarm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&family=Roboto+Mono:wght@300;400;500&display=swap">
+<style>
+/* Matrix terminal: near-black green ground, cream text, phosphor green reserved for highlights and live state. Single dark world by choice. */
+:root{
+  --bg:#010c07; --bg-2:#02130b; --panel:rgba(3,22,13,.9); --panel-solid:#03160d; --panel-hi:#062616;
+  --line:#0f4a2b; --line-soft:#0a3220;
+  --phos:#4dff91; --phos-2:#2fbf6a; --phos-3:#155f37;
+  --cream:#f3e9d2; --cream-2:#cfc3a6; --muted:#86a892;
+  --amber:#f2c46b; --coral:#ff8f7a; --teal:#8fd3c8;
+  --ui:'Roboto','Segoe UI',system-ui,-apple-system,sans-serif;
+  --mono:'Roboto Mono','Cascadia Mono',Consolas,ui-monospace,monospace;
+  --r:8px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg);color:var(--cream)}
+body{margin:0;font:400 14px/1.45 var(--ui);padding-inline:16px;padding-block:16px 24px;min-height:100vh}
+#rain{position:fixed;inset:0;width:100%;height:100%;opacity:.06;pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:50;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px);mix-blend-mode:multiply}
+.app{position:relative;z-index:1;max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.glow{text-shadow:0 0 8px rgba(77,255,145,.35)}
+
+/* chrome */
+.chrome{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--bg-2)}
+.dots{display:flex;gap:6px;flex:none}
+.dots i{width:10px;height:10px;border-radius:50%;background:var(--phos-3);display:block;border:1px solid var(--phos-2)}
+.dots i:first-child{background:var(--phos);box-shadow:0 0 8px var(--phos)}
+.chrome h1{margin:0;font:500 13.5px/1.2 var(--mono);color:var(--cream);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chrome h1 b{color:var(--phos);font-weight:500}
+.live{margin-left:auto;display:flex;align-items:center;gap:8px;font:500 11px var(--mono);letter-spacing:.14em;color:var(--muted);text-transform:uppercase;flex:none}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--phos);box-shadow:0 0 8px var(--phos);animation:pulse 1.4s infinite}
+.paused .live i{animation:none;background:var(--amber);box-shadow:none}
+@keyframes pulse{50%{opacity:.3}}
+
+.eyebrow{font:500 10.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.concept{display:inline-block;font:500 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--amber);border:1px solid rgba(242,196,107,.45);border-radius:4px;padding:1px 6px}
+
+/* log lines */
+.ln{white-space:pre-wrap;word-break:break-word;animation:lnin .2s ease-out}
+@keyframes lnin{from{opacity:0}to{opacity:1}}
+.ln.cmd{color:var(--cream);margin-top:6px}
+.ln.cmd .ps{color:var(--phos)}
+.ln.amb{color:var(--muted);opacity:.78;font-size:.94em}
+.caret{display:inline-block;width:.6em;height:1.05em;vertical-align:-2px;background:var(--phos);box-shadow:0 0 6px var(--phos);margin-left:1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.c-ok{color:var(--phos)} .c-warn{color:var(--amber)} .c-err{color:var(--coral)} .c-dim{color:var(--muted)}
+.c-k{color:var(--teal)} .c-hl{color:var(--bg);background:var(--phos);padding:0 4px;border-radius:3px}
+.c-q{color:var(--cream-2);font-style:italic} .c-big{color:var(--phos);font-weight:500}
+
+/* transport */
+.transport{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--bg-2)}
+.btn{font:500 12px var(--mono);color:var(--cream);background:var(--panel-hi);border:1px solid var(--line);border-radius:6px;padding:6px 10px;cursor:pointer;min-height:32px}
+.btn:hover{border-color:var(--phos)}
+.btn[aria-pressed="true"]{background:var(--phos);color:var(--bg);border-color:var(--phos)}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.speeds{display:flex;gap:4px}
+.scrub{flex:1;min-width:180px;display:flex}
+.scrub input{width:100%;accent-color:var(--phos)}
+.clock{font:500 13px var(--mono);font-variant-numeric:tabular-nums;color:var(--cream);min-width:96px;text-align:right}
+.kbd{font:400 11px var(--mono);color:var(--muted)}
+
+/* footer */
+footer.foot{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:flex-start;justify-content:space-between;color:var(--muted);font:400 12px var(--ui);padding:4px 2px}
+footer details{max-width:820px}
+footer summary{cursor:pointer;color:var(--cream-2)}
+footer ul{margin:8px 0 0;padding-left:18px;line-height:1.6}
+footer .disc{margin:8px 0 0;color:var(--muted)}
+footer .credit{font:500 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+/* svg text */
+svg text{font-family:var(--mono)}
+
+@media (max-width:720px){.kbd{display:none}}
+@media (prefers-reduced-motion:reduce){.ln{animation:none}.caret,.live i{animation:none}}
+
+/* live strip */
+.strip{border:1px solid var(--line);border-radius:var(--r);background:var(--panel);overflow:hidden;min-width:0}
+.strip-h{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;padding:7px 12px 0}
+.strip-h .eyebrow{display:flex;align-items:center;gap:7px}
+.rec{width:7px;height:7px;border-radius:50%;background:var(--coral);display:inline-block;animation:pulse 1.2s infinite}
+.strip-r{display:flex;flex-wrap:wrap;gap:2px 14px;margin-left:auto;font:400 11.5px var(--mono);color:var(--cream);font-variant-numeric:tabular-nums;min-width:0}
+.strip-r em{font-style:normal;color:var(--muted);margin-right:3px}
+.strip-r b{font-weight:500} .strip-r .ok{color:var(--phos)} .strip-r .warn{color:var(--amber)} .strip-r .err{color:var(--coral)}
+.strip canvas{display:block;width:100%;height:96px}
+@media (prefers-reduced-motion:reduce){.rec{animation:none}}
+
+</style>
+</head>
+<body>
+<!-- Generated from simulations/_src by build.mjs. Edit the sources, not this file. -->
+<style>
+/* Layout: metric strip, live telemetry, then agent roster | conversation stream | handoff graph + guardrails + human gates. */
+.mstrip{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.m{border:1px solid var(--line-soft);border-radius:var(--r);padding:9px 12px;background:var(--panel);min-width:0}
+.m .eyebrow{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m .v{font:300 24px/1.15 var(--mono);font-variant-numeric:tabular-nums}
+.m .n{font:400 11px var(--mono);color:var(--cream-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v.good{color:var(--phos);text-shadow:0 0 10px rgba(77,255,145,.35)} .v.warn{color:var(--amber)}
+.main{display:grid;grid-template-columns:260px minmax(0,1fr) 340px;gap:10px;align-items:stretch}
+.col{border:1px solid var(--line-soft);border-radius:var(--r);background:var(--panel);min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.col > header{padding:9px 12px;border-bottom:1px solid var(--line-soft);background:var(--bg-2);display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;min-width:0}
+.col > header h2{margin:0;font:500 12.5px var(--mono);flex:none}
+.col > header span{margin-left:auto;font:400 11px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bg{padding:5px 12px;border-bottom:1px dashed var(--line-soft);font:400 11px var(--mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bg b{color:var(--phos-2);font-weight:400}
+.roster{list-style:none;margin:0;padding:6px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+.ag{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:2px 8px;align-items:center;padding:7px 8px;border-radius:6px;border:1px solid transparent}
+.ag .av{grid-row:span 2;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:500 11px var(--mono);color:var(--bg)}
+.ag .nm{font:500 12.5px var(--mono);color:var(--cream);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ag .st{font:500 9.5px var(--mono);letter-spacing:.08em;padding:1px 6px;border-radius:999px;border:1px solid var(--line);color:var(--muted);text-transform:uppercase}
+.ag .tk{grid-column:2 / span 2;font:400 11px var(--ui);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ag.working{border-color:var(--phos-2);background:var(--panel-hi)}
+.ag.working .st{background:var(--phos);border-color:var(--phos);color:var(--bg)}
+.ag.reading .st{border-color:var(--teal);color:var(--teal)}
+.ag.revising .st{border-color:var(--coral);color:var(--coral)}
+.ag.reviewing .st{border-color:var(--amber);color:var(--amber)}
+.ag.human{border:1px dashed var(--amber)}
+.ag.human.working{background:#1f2a12}
+.ag.human.working .st{background:var(--amber);border-color:var(--amber)}
+.stream{flex:1 1 0;min-height:560px;overflow-y:auto;padding:10px 14px 14px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.ev{display:grid;grid-template-columns:44px minmax(0,1fr);gap:2px 10px;animation:lnin .25s ease-out}
+.ev .ts{font:400 11px var(--mono);color:var(--muted);padding-top:2px;font-variant-numeric:tabular-nums}
+.ev .who{font:400 11.5px var(--mono);color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ev .who b{font-weight:500}
+.ev .tx{grid-column:2;font:400 13.5px/1.5 var(--ui);color:var(--cream)}
+.ev.tool .tx{font:400 12px/1.5 var(--mono);color:var(--cream-2)}
+.ev.tool .tx::before{content:'▸ ';color:var(--phos)}
+.ev.think .tx{color:var(--cream-2);font-style:italic}
+.ev.sys .tx{font:400 12px var(--mono);color:var(--muted)}
+.ev.pass .tx,.ev.block .tx,.ev.flag .tx{border-left:3px solid var(--phos);padding:4px 10px;background:rgba(77,255,145,.06)}
+.ev.block .tx{border-color:var(--coral);background:rgba(255,143,122,.08)}
+.ev.flag .tx{border-color:var(--amber);background:rgba(242,196,107,.07)}
+.ev.gate .tx,.ev.approve .tx{border:1px solid var(--amber);border-radius:6px;padding:8px 12px;background:rgba(242,196,107,.06)}
+.ev.approve .tx{border-color:var(--phos);background:rgba(77,255,145,.07)}
+.tag{display:inline-block;font:500 9.5px var(--mono);letter-spacing:.1em;padding:1px 6px;border-radius:3px;margin-right:6px;vertical-align:1px;color:var(--bg)}
+.tag.pass,.tag.ok{background:var(--phos)} .tag.block{background:var(--coral)} .tag.flag,.tag.gate{background:var(--amber)}
+.typing{font:400 11.5px var(--mono);color:var(--muted);padding-left:54px}
+.typing i{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--phos-2);margin-right:3px;animation:bob 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes bob{50%{transform:translateY(-3px);opacity:.5}}
+.c-q{color:var(--cream-2);font-style:italic}
+#graph svg{display:block;width:100%;height:auto}
+.sect{padding:10px 12px;border-bottom:1px solid var(--line-soft)}
+.sect:last-child{border-bottom:none}
+.rails{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:5px;font:400 12px var(--mono)}
+.rails li{display:flex;gap:8px;align-items:baseline;min-width:0}
+.rails li .l{color:var(--cream-2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rails li .r{margin-left:auto;color:var(--cream);flex:none;font-variant-numeric:tabular-nums}
+.rails li .r.good{color:var(--phos)} .rails li .r.warn{color:var(--amber)} .rails li .r.bad{color:var(--coral)}
+.gates{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
+.gt{border:1px solid var(--line);border-radius:6px;padding:6px 4px;text-align:center;font:500 11px var(--mono);color:var(--muted)}
+.gt small{display:block;font-weight:400;font-size:10px;margin-top:1px}
+.gt.wait{border-color:var(--amber);color:var(--amber)}
+.gt.ok{border-color:var(--phos);background:rgba(77,255,145,.1);color:var(--phos)}
+@media (max-width:1200px){.main{grid-template-columns:230px minmax(0,1fr)}.right{grid-column:1 / -1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.mstrip{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:760px){.main{grid-template-columns:1fr}.right{grid-template-columns:1fr}.roster{flex-direction:row;overflow-x:auto;padding:8px}.ag{min-width:190px}.stream{min-height:460px}.mstrip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (prefers-reduced-motion:reduce){.ev{animation:none}.typing i{animation:none}}
+</style>
+<canvas id="rain" aria-hidden="true"></canvas>
+<div class="app" id="app">
+  <div class="chrome">
+    <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+    <h1 class="glow" data-meta="path"></h1>
+    <div class="live"><i></i><span id="liveTxt">live</span></div>
+  </div>
+  <section class="mstrip" id="mstrip" aria-label="Swarm metrics"></section>
+  <section class="strip" id="strip" aria-label="Live telemetry"></section>
+  <div class="main">
+    <section class="col" aria-label="Agents">
+      <header><h2>agents</h2><span id="nActive">0 working</span></header>
+      <ul class="roster" id="roster"></ul>
+    </section>
+    <section class="col" aria-label="Conversation">
+      <header><h2>swarm.log</h2><span class="concept">Concept study</span><span id="phaseLbl">Discover · Empathize</span></header>
+      <div class="bg" id="bgjob" aria-hidden="true"></div>
+      <div class="stream" id="stream"></div>
+    </section>
+    <section class="col right" aria-label="Handoffs, guardrails and gates">
+      <div class="sect"><div class="eyebrow">Handoff graph · live</div><div id="graph"></div></div>
+      <div class="sect">
+        <div class="eyebrow">Guardrails</div>
+        <ul class="rails" id="rails"></ul>
+        <div class="eyebrow" style="margin-top:12px">Human-in-the-loop gates</div>
+        <div class="gates" id="gates"></div>
+      </div>
+    </section>
+  </div>
+  <div class="transport" role="group" aria-label="Simulation controls">
+    <button class="btn" id="play" aria-label="Pause simulation">❚❚ Pause</button>
+    <button class="btn" id="restart" aria-label="Restart from zero">⟲ Restart</button>
+    <div class="speeds" role="group" aria-label="Playback speed">
+      <button class="btn" data-speed="1" aria-pressed="true">1×</button>
+      <button class="btn" data-speed="2" aria-pressed="false">2×</button>
+      <button class="btn" data-speed="4" aria-pressed="false">4×</button>
+    </div>
+    <div class="scrub"><input id="scrub" type="range" min="0" max="120" step="0.1" value="0" aria-label="Seek within the 2-minute cycle"></div>
+    <div class="clock" id="clock">00:00 / 02:00</div>
+    <span class="kbd">space · ← → · 1 2 4</span>
+  </div>
+  <footer class="foot">
+    <details>
+      <summary>Methods &amp; sources: the project data is simulated, the methods and thresholds are real</summary>
+      <ul id="sources"></ul>
+      <p class="disc" data-meta="disclaimer"></p>
+    </details>
+    <span class="credit">Built by Puneet Arora</span>
+  </footer>
+
+</div>
+
+<script>
+/* ============ shared engine: clock, scripts, ambient activity, logs, live strips, matrix rain ============ */
+const DUR = 120;
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = s => esc(s).replace(/\{(\w+):([^{}]*)\}/g, '<span class="c-$1">$2</span>');
+const plain = s => String(s).replace(/\{\w+:([^{}]*)\}/g, '$1');
+const mmss = s => { s = Math.max(0, Math.floor(s)); return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0'); };
+const rng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let x = Math.imul(seed ^ seed >>> 15, 1 | seed); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; };
+const hash = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const pick = (r, a) => a[Math.floor(r() * a.length)];
+const ri = (r, a, b) => a + Math.floor(r() * (b - a + 1));
+const rf = (r, a, b, d = 1) => (a + r() * (b - a)).toFixed(d);
+
+/* script builder: time-anchored lines; warns when a block overruns its anchor */
+function script(name, cps = 40){
+  const L = []; let t = 0;
+  const b = {
+    cps,
+    at(x){ if (t > x + 0.01) console.warn(`[${name}] overrun: ${t.toFixed(2)} > ${x}`); t = x; return b; },
+    cmd(x, p = .35){ L.push({at:t, k:'cmd', x}); t += x.length / cps + p; return b; },
+    o(x, d = .45, k = ''){ L.push({at:t, x, k}); t += d; return b; },
+    bar(label, d, done){ L.push({at:t, d, k:'bar', label, done}); t += d + .3; return b; },
+    lines(){ if (t > DUR - 0.3) console.warn(`[${name}] runs past loop end: ${t.toFixed(2)}`); return L; }
+  };
+  return b;
+}
+
+/* fill quiet gaps with deterministic background activity so no pane ever sits idle */
+function ambient(L, pool, seed, {cps = 40, gap = 2.6, step = [1.7, 3.1], from = .9, to = 118.8} = {}){
+  const r = rng(seed), out = []; let prev = -1;
+  const next = at => { let i; do { i = Math.floor(r() * pool.length); } while (pool.length > 1 && i === prev); prev = i; return pool[i](r, at); };
+  const busyEnd = l => l.at + (l.k === 'cmd' ? l.x.length / cps + .3 : l.k === 'bar' ? l.d + .3 : .35);
+  const sorted = [...L].sort((a, b) => a.at - b.at);
+  let cur = from;
+  const fill = until => { let s = cur + step[0] + r() * (step[1] - step[0]) * .5; while (s < until - .7){ out.push({at:s, x:next(s), k:'amb'}); s += step[0] + r() * (step[1] - step[0]); } };
+  for (const l of sorted){ if (l.at - cur > gap) fill(l.at); cur = Math.max(cur, busyEnd(l)); }
+  if (to - cur > gap) fill(to);
+  return [...L, ...out].sort((a, b) => a.at - b.at);
+}
+
+const barTxt = (label, p, done, n = 22) => {
+  const f = Math.round(p * n);
+  return fmt(`${label} {ok:${'█'.repeat(f)}}{dim:${'░'.repeat(n - f)}} ${String(Math.round(p * 100)).padStart(3)}%`) + (p >= 1 && done ? '  ' + fmt(done) : '');
+};
+
+class Log {
+  constructor(el, lines, {max = 160, cps = 40, prompt = '❯ '} = {}){
+    this.el = el; this.s = lines; this.max = max; this.cps = cps; this.prompt = `<span class="ps">${esc(prompt)}</span>`; this.stick = true;
+    el.addEventListener('scroll', () => { this.stick = el.scrollHeight - el.scrollTop - el.clientHeight < 28; });
+    this.reset();
+  }
+  reset(){ this.el.innerHTML = ''; this.i = 0; this.live = []; this.lastT = -1; this.lastAt = -99; this.stick = true; }
+  render(t){
+    if (t < this.lastT) this.reset();
+    this.lastT = t; let added = false;
+    while (this.i < this.s.length && this.s[this.i].at <= t){
+      const ln = this.s[this.i++], d = document.createElement('div');
+      d.className = 'ln ' + (ln.k || ''); this.el.appendChild(d); added = true;
+      if (ln.k !== 'amb') this.lastAt = ln.at;
+      if (ln.k === 'cmd' || ln.k === 'bar') this.live.push({ln, d}); else d.innerHTML = fmt(ln.x);
+    }
+    this.live = this.live.filter(({ln, d}) => {
+      if (ln.k === 'bar'){ const p = clamp((t - ln.at) / ln.d, 0, 1); d.innerHTML = barTxt(ln.label, p, ln.done); return p < 1; }
+      const n = Math.floor((t - ln.at) * this.cps);
+      if (n >= ln.x.length){ d.innerHTML = this.prompt + esc(ln.x); return false; }
+      d.innerHTML = this.prompt + esc(ln.x.slice(0, n)) + '<span class="caret"></span>'; return true;
+    });
+    while (this.el.children.length > this.max) this.el.firstChild.remove();
+    if ((added || this.live.length) && this.stick) this.el.scrollTop = this.el.scrollHeight;
+  }
+}
+
+/* step lookup: pts = [[t, value], ...] */
+const stepIdx = (t, pts) => { let i = -1; pts.forEach((p, j) => { if (p[0] <= t) i = j; }); return i; };
+
+/* ============ live strips (pure functions of sim time) ============ */
+const STRIPS = {
+  /* CPR depth trace: 110/min, 30:2 cycles; consistency improves after the redesigned flow ships (t ≥ 95) */
+  cpr: {
+    label: 'live · RQI station telemetry',
+    stations: ['4W-02 · RN night · adult','ICU-3 · RN day · adult','PICU-1 · RN · infant','ED-7 · RN night · adult','5E-04 · new grad · adult','L&D-2 · RN · infant'],
+    sample(s, t){
+      const cyc = 20.4, k = s % cyc, per = 60/110, after = t >= 95;
+      if (k >= 30*per) { const b = (k - 30*per) / 2; return {d: b < 2 ? .25*Math.pow(Math.sin(Math.PI*(b % 1)), 2) : 0, vent:true}; }
+      const i = Math.floor(k / per), ph = (k % per) / per, n = Math.floor(s / cyc) * 31 + i;
+      const base = after ? 5.45 : 5.0, spread = after ? .38 : .85;
+      const depth = clamp(base + (hash(n) - .5) * 2 * spread, 3.6, 6.6);
+      return {d: depth * Math.pow(Math.sin(Math.PI * ph), 2), depth, vent:false};
+    },
+    draw(ctx, w, h, t){
+      const win = 6, top = 10, bot = h - 16, sy = d => top + d / 7 * (bot - top);
+      ctx.fillStyle = 'rgba(77,255,145,.07)'; ctx.fillRect(0, sy(5), w, sy(6) - sy(5));
+      ctx.strokeStyle = 'rgba(134,168,146,.35)'; ctx.setLineDash([3,4]); ctx.lineWidth = 1;
+      [5,6].forEach(d => { ctx.beginPath(); ctx.moveTo(0, sy(d)); ctx.lineTo(w, sy(d)); ctx.stroke(); }); ctx.setLineDash([]);
+      ctx.fillStyle = '#86a892'; ctx.font = '10px "Roboto Mono", monospace';
+      ctx.textAlign = 'right'; ctx.fillText('5 cm', w - 4, sy(5) - 3); ctx.fillText('6 cm', w - 4, sy(6) + 11); ctx.textAlign = 'left';
+      ctx.beginPath(); ctx.lineWidth = 1.6; ctx.strokeStyle = '#4dff91'; ctx.shadowColor = '#4dff91'; ctx.shadowBlur = 6;
+      for (let x = 0; x <= w; x += 1.5){ const s = t - (w - x) / w * win; const v = s < 0 ? {d:0} : this.sample(s, t); const y = sy(v.d); x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      ctx.stroke(); ctx.shadowBlur = 0;
+    },
+    read(t){
+      const per = 60/110, cyc = 20.4, after = t >= 95;
+      let last = null; for (let s = t; s > t - 3; s -= per/3){ const v = this.sample(s, t); if (!v.vent && v.depth){ last = v.depth; break; } }
+      const k = t % cyc, vent = k >= 30*per;
+      const st = this.stations[Math.floor(t / cyc) % this.stations.length];
+      const inT = last != null && last >= 5 && last <= 6;
+      return [
+        ['station', st],
+        ['depth', vent ? 'ventilating · 30:2' : `<b class="${inT ? 'ok' : 'warn'}">${last ? last.toFixed(1) : '—'} cm</b>`],
+        ['rate', `${108 + Math.floor(hash(Math.floor(t)) * 6)}/min`],
+        ['recoil', `${after ? 97 + Math.floor(hash(Math.floor(t)+3)*3) : 86 + Math.floor(hash(Math.floor(t)+3)*10)}%`],
+        ['in target', `<b class="${after ? 'ok' : 'warn'}">${after ? 79 : 61}%</b>`]
+      ];
+    }
+  },
+  /* patient-monitor ECG from the sim room: sinus → VF → shock → CPR → ROSC, 40 s scenario loop */
+  ecg: {
+    label: 'live · sim room 2 · SimMan monitor',
+    phase(sc){ return sc < 12 ? 'sinus' : sc < 19 ? 'vf' : sc < 24.5 ? 'cpr' : 'rosc'; },
+    beat(p){ const g = (c, a, w) => a * Math.exp(-Math.pow((p - c) / w, 2)); return g(.18,.12,.03) + g(.3,-.12,.012) + g(.33,1,.012) + g(.36,-.28,.014) + g(.58,.3,.05); },
+    sample(s){
+      const sc = ((s % 40) + 40) % 40, ph = this.phase(sc);
+      if (ph === 'sinus'){ const per = 60/88; return this.beat((sc % per) / per); }
+      if (ph === 'vf') return .38 * Math.sin(sc * 31) * Math.sin(sc * 4.3 + 1) + .18 * Math.sin(sc * 19.7);
+      if (ph === 'cpr'){ if (sc < 19.25) return sc < 19.08 ? 1.6 : -.6; const per = 60/110; return .55 * Math.sin(2 * Math.PI * (sc - 19.25) / per); }
+      const per = 60/112; return .9 * this.beat((sc % per) / per);
+    },
+    draw(ctx, w, h, t){
+      const win = 5, mid = h * .55, amp = h * .34;
+      ctx.strokeStyle = 'rgba(134,168,146,.18)'; ctx.lineWidth = 1;
+      for (let x = 0; x < w; x += 24){ ctx.beginPath(); ctx.moveTo(x, 8); ctx.lineTo(x, h - 8); ctx.stroke(); }
+      ctx.beginPath(); ctx.lineWidth = 1.6; ctx.strokeStyle = '#4dff91'; ctx.shadowColor = '#4dff91'; ctx.shadowBlur = 6;
+      for (let x = 0; x <= w; x += 1.2){ const s = t - (w - x) / w * win; const y = mid - this.sample(s) * amp; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      ctx.stroke(); ctx.shadowBlur = 0;
+      for (let x = 0; x <= w; x += 2){ const s = t - (w - x) / w * win, sc = ((s % 40) + 40) % 40; if (Math.abs(sc - 19) < .03){ ctx.fillStyle = '#f2c46b'; ctx.font = '11px "Roboto Mono", monospace'; ctx.fillText('⚡ 200 J', x + 4, 16); ctx.fillRect(x, 6, 1.5, h - 12); } }
+    },
+    read(t){
+      const sc = t % 40, ph = this.phase(sc);
+      const lbl = {sinus:'sinus 88', vf:'<b class="err">VF</b>', cpr:'<b class="warn">CPR in progress</b>', rosc:'<b class="ok">ROSC · sinus tach</b>'}[ph];
+      const hr = {sinus:'88', vf:'—', cpr:'—', rosc:'112'}[ph];
+      return [
+        ['scenario', `adult IHCA #${Math.floor(t / 40) + 14}`],
+        ['rhythm', lbl],
+        ['HR', hr],
+        ['time to shock', sc >= 19 ? '<b class="ok">01:52</b>' : sc >= 12 ? `<b class="warn">${mmss((sc - 12) * 16)}</b>` : '—'],
+        ['events logged', String(Math.floor(sc * 1.7) + 3)]
+      ];
+    }
+  }
+};
+function mountStrip(host, kind){
+  const S = STRIPS[kind];
+  host.innerHTML = `<div class="strip-h"><span class="eyebrow"><i class="rec"></i>${S.label}</span><div class="strip-r" aria-live="off"></div></div><canvas aria-label="${S.label}" role="img"></canvas>`;
+  const cv = host.querySelector('canvas'), rd = host.querySelector('.strip-r');
+  let lastR = -1;
+  return t => {
+    const dpr = Math.min(2, window.devicePixelRatio || 1), w = cv.clientWidth, h = cv.clientHeight;
+    if (!w) return;
+    if (cv.width !== Math.round(w * dpr)){ cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+    S.draw(ctx, w, h, t);
+    const q = Math.floor(t * 4);
+    if (q !== lastR){ lastR = q; rd.innerHTML = S.read(t).map(([k, v]) => `<span><em>${k}</em> ${v}</span>`).join(''); }
+  };
+}
+
+/* ============ matrix rain (decorative, 6% opacity) ============ */
+function startRain(){
+  const cv = document.getElementById('rain'); if (!cv) return;
+  const ctx = cv.getContext('2d'), G = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉ0123456789♥+<>=/'.split('');
+  let cols = [], fs = 15, W = 0, H = 0;
+  const size = () => { W = cv.width = innerWidth; H = cv.height = innerHeight; cols = Array.from({length: Math.ceil(W / fs)}, (_, i) => hash(i) * H / fs); ctx.fillStyle = '#010c07'; ctx.fillRect(0, 0, W, H); };
+  size(); addEventListener('resize', size);
+  const draw = () => {
+    ctx.fillStyle = 'rgba(1,12,7,.14)'; ctx.fillRect(0, 0, W, H); ctx.font = fs + 'px "Roboto Mono", monospace';
+    cols.forEach((y, i) => { const ch = G[Math.floor(Math.random() * G.length)]; ctx.fillStyle = Math.random() < .08 ? '#f3e9d2' : '#4dff91'; ctx.fillText(ch, i * fs, y * fs); cols[i] = y * fs > H && Math.random() > .975 ? 0 : y + 1; });
+  };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches){ for (let i = 0; i < 60; i++) draw(); return; }
+  let last = 0; const loop = ts => { if (ts - last > 55){ last = ts; draw(); } requestAnimationFrame(loop); }; requestAnimationFrame(loop);
+}
+
+/* ============ clock & transport ============ */
+function createSim(render, onWrap){
+  const sim = {t: 0, speed: 1, playing: true, loops: 0};
+  let last = null, scrubbing = false;
+  const sc = $('#scrub');
+  const draw = force => { render(sim.t, force); $('#clock').textContent = mmss(sim.t) + ' / 02:00'; if (!scrubbing) sc.value = sim.t.toFixed(1); };
+  function frame(ts){
+    if (last === null) last = ts;
+    const dt = Math.min(.1, (ts - last) / 1000); last = ts;
+    if (sim.playing && !scrubbing){ sim.t += dt * sim.speed; if (sim.t >= DUR){ sim.t = 0; sim.loops++; onWrap && onWrap(); draw(true); } }
+    draw(false); requestAnimationFrame(frame);
+  }
+  function seek(t){ sim.t = clamp(t, 0, DUR - .01); onWrap && onWrap(); draw(true); }
+  function setPlaying(p){ sim.playing = p; const b = $('#play'); b.textContent = p ? '❚❚ Pause' : '▶ Play'; b.setAttribute('aria-label', p ? 'Pause simulation' : 'Play simulation'); $('#app').classList.toggle('paused', !p); $('#liveTxt').textContent = p ? 'live' : 'paused'; }
+  function setSpeed(s){ sim.speed = s; document.querySelectorAll('[data-speed]').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.speed === s))); }
+  $('#play').onclick = () => setPlaying(!sim.playing);
+  $('#restart').onclick = () => { seek(0); setPlaying(true); };
+  document.querySelectorAll('[data-speed]').forEach(x => x.onclick = () => setSpeed(+x.dataset.speed));
+  sc.addEventListener('input', () => { scrubbing = true; seek(+sc.value); });
+  sc.addEventListener('change', () => { scrubbing = false; });
+  sc.addEventListener('pointerup', () => { scrubbing = false; });
+  document.addEventListener('keydown', e => {
+    if (e.target.closest('input,button,summary') && e.key === ' ') return;
+    if (e.key === ' '){ e.preventDefault(); setPlaying(!sim.playing); }
+    else if (e.key === 'ArrowRight') seek(sim.t + 5);
+    else if (e.key === 'ArrowLeft') seek(sim.t - 5);
+    else if (['1','2','4'].includes(e.key)) setSpeed(+e.key);
+  });
+  window.__sim = {seek, setSpeed, setPlaying, get t(){ return sim.t; }, get loops(){ return sim.loops; }};
+  startRain();
+  draw(true); requestAnimationFrame(frame);
+  return sim;
+}
+
+/* shared page furniture from STORY.meta */
+function mountMeta(M){
+  document.querySelectorAll('[data-meta]').forEach(el => { const v = M[el.dataset.meta]; if (v != null) el.innerHTML = v; });
+  const ul = $('#sources'); if (ul) ul.innerHTML = M.sources.map(s => `<li>${s}</li>`).join('');
+}
+
+/* ============ Use case: RQI quarterly CPR practice (concept study, simulated data) ============ */
+const META = {
+  usecase: 'rqi',
+  project: 'Project Heartline',
+  eyebrow: 'RQI · resuscitation quality improvement',
+  headline: 'Quarterly CPR practice that fits a nursing shift',
+  goal: 'Nurses finish their 10-minute RQI session on time, without restarting, and leave with better compressions.',
+  strip: 'cpr',
+  disclaimer: 'Unofficial concept study for a design portfolio. Not affiliated with or endorsed by Laerdal Medical, RQI Partners or the American Heart Association. RQI, QCPR and other product names belong to their owners. All project data is simulated; methods, guidelines and thresholds are real.',
+  sources: [
+    'RQI (Resuscitation Quality Improvement): co-developed by the American Heart Association and Laerdal Medical (2015). Low-dose, high-frequency sessions of about 10 minutes every 90 days with real-time audiovisual CPR feedback, instead of a day of training every two years.',
+    'AHA adult CPR quality targets: compression depth 5–6 cm, rate 100–120/min, full chest recoil, minimal interruptions (compression fraction ideally ≥ 80%), 30:2 without an advanced airway.',
+    'CPR skills decay within months of training; short, frequent practice sustains them (e.g. Oermann et al., 2011: 6 minutes a month).',
+    'Double Diamond (UK Design Council, 2005; NN/g) mapped to Stanford d.school modes: Empathize, Define, Ideate, Prototype, Test.',
+    'Saturation around 12 interviews (Guest, Bunce &amp; Johnson, 2006). Problems found = 1 − (1 − 0.31)<sup>n</sup> (Nielsen &amp; Landauer). About 40 users for quantitative benchmarks (NN/g).',
+    'Nielsen’s 10 heuristics with 0–4 severity. SUS average 68 with the Sauro–Lewis curved grades. Adjusted-Wald intervals for completion rates.',
+    'HEART framework (Google, 2010). RICE (Intercom). Stepped-wedge cluster rollout for unit-level change (Hussey &amp; Hughes, 2007).',
+    'WCAG 2.2 AA: 1.4.1 use of colour, 1.4.3 contrast 4.5:1, 1.3.3 sensory characteristics, 2.5.8 target size 24×24 CSS px.'
+  ]
+};
+
+const INTERVIEWS = [
+  ['P01','night RN · ICU',36,15,'The cart is in the break room. My break is the only time I’m not on my feet.'],
+  ['P02','day RN · med-surg',28,12,'It said “insufficient depth” thirty times. I knew after the third.'],
+  ['P03','nurse educator',44,9,'My dashboard shows red, amber, green. It doesn’t show who is about to go red.'],
+  ['P04','night RN · ED',25,8,'I got paged mid-session and had to start over. Twice.'],
+  ['P05','night RN · med-surg',31,6,'Logging in took longer than the compressions.'],
+  ['P06','unit manager',39,5,'I chase 140 people by email every quarter.'],
+  ['P07','day RN · L&D',27,3,'I’m five foot one. Depth is hard without a step stool. Nobody asked.'],
+  ['P08','travel RN',22,2,'New hospital, new login, same CPR. Why do I redo everything?'],
+  ['P09','RN · PICU',33,2,'Infant sessions feel like an afterthought in the flow.'],
+  ['P10','day RN · ICU',29,1,'I like seeing my depth live. I hate seeing my name on a leaderboard.'],
+  ['P11','resus committee chair',41,1,'I need session data next to our code outcomes, not just completion.'],
+  ['P12','new-grad RN',24,0,'I’m scared of failing it, so I put it off.']
+].map((r, i) => ({id:r[0], role:r[1], mins:r[2], codes:r[3], q:r[4], at:5.5 + i*1.9}));
+
+const UNITS = ['ICU-3','5E','4W','ED','PICU','L&D','6N','CVICU'];
+const AMB = {
+  research: [
+    r => `transcript chunk ${ri(r,2,40)}/40 · speaker-tagged · PII stripped`,
+    r => `tag · note #${ri(r,10,263)} → “${pick(r,['access & interruption','login friction','feedback overload','fear of judgment','body mechanics'])}”`,
+    r => `scheduler · slot moved to 0${ri(r,2,5)}:30 for night shift`,
+    r => `consent ledger · ${ri(r,10,12)}/12 ✓`
+  ],
+  synth: [
+    r => `board autosave · ${ri(r,180,263)} notes`,
+    r => `quote #${ri(r,3,61)} verified against transcript ✓`,
+    r => `duplicate notes merged · ${ri(r,1,4)}`,
+    r => `cluster drift check · stable`
+  ],
+  ideate: [
+    (r, s) => s < 60 ? `inspiration · ${ri(r,3,12)} analogous examples saved (aviation checklists, pit stops)` : `sketch sk-${String(ri(r,1,48)).padStart(2,'0')}.png uploaded`,
+    (r, s) => s < 60 ? `teardown · ${pick(r,['fitness app streaks','badge-tap kiosks','pause/resume in games'])} noted` : `figma autosave · frame ${ri(r,1,19)}`,
+    (r, s) => s < 60 ? `inspiration · ${ri(r,3,12)} analogous examples saved (aviation checklists, pit stops)` : `component lint · 0 detached instances`,
+    (r, s) => s < 60 ? `teardown · ${pick(r,['fitness app streaks','badge-tap kiosks','pause/resume in games'])} noted` : `idea #${ri(r,1,64)} tagged “${pick(r,['resume','coaching','login','manager view','ergonomics'])}”`
+  ],
+  usab: [
+    r => `recorder · room ${ri(r,1,3)} · audio level ok`,
+    r => `observer note @ ${mmss(ri(r,30,600))} · “${pick(r,['hesitates at login','looks for pause','reads cue aloud','asks for step stool'])}”`,
+    r => `clip exported · ${mmss(ri(r,10,90))}`,
+    r => `task timer calibrated ✓`
+  ],
+  analytics: [
+    r => `lms.sync → hospital LMS · ${ri(r,1,6)} records · ${ri(r,120,420)} ms`,
+    r => `due in 7 days · ${ri(r,180,460)} nurses`,
+    r => `events/min ${ri(r,40,95)}`,
+    r => `dashboard refresh · ${ri(r,90,260)} ms`
+  ],
+  quality: [
+    r => `manikin RA-${ri(r,10,99)} · sensors ok · battery ${ri(r,61,99)}%`,
+    r => `♥ heartbeat · ${ri(r,39,42)}/42 stations online`,
+    r => `axe-ci · 0 new violations`,
+    r => `station ${pick(r,UNITS)} · boot ${ri(r,11,49)} s`
+  ],
+  station: [
+    r => `${pick(r,UNITS)} · depth ${rf(r,4.6,6.0)} cm · rate ${ri(r,104,118)}/min · recoil ${ri(r,88,100)}%`,
+    r => `badge tap · RN ••${ri(r,10,99)} · ${pick(r,UNITS)}`,
+    r => `session signed · ${(r()*0xffffff|0).toString(16).padStart(6,'0')}`
+  ]
+};
+
+/* RQI · Agent Swarm story */
+const STORY = (() => {
+const AGENTS = [
+  {id:'orchestrator', ab:'OR', c:'#4dff91', role:'plans, routes, runs the gates'},
+  {id:'researcher', ab:'RE', c:'#8fd3c8', role:'screeners, shift scheduling, transcripts'},
+  {id:'synthesizer', ab:'SY', c:'#cfe9d8', role:'clusters, empathy maps, POV'},
+  {id:'ideator', ab:'ID', c:'#f2c46b', role:'HMW to ideas, goes wide'},
+  {id:'prototyper', ab:'PR', c:'#7fe0a8', role:'station UI, flows, tokens'},
+  {id:'critic', ab:'CR', c:'#ff8f7a', role:'Nielsen heuristics, severity'},
+  {id:'a11y', ab:'AX', c:'#b5e8de', role:'WCAG 2.2 AA, gloves, glare'},
+  {id:'evaluator', ab:'EV', c:'#e9dcbc', role:'SUS, CPR metrics, stepped-wedge'},
+  {id:'guardian', ab:'GU', c:'#cfc3a6', role:'privacy, evidence, equity'},
+  {id:'design-lead', ab:'DL', c:'#f2c46b', role:'human · approves every gate', human:true}
+];
+const EVENTS = [
+  [.4,'sys','orchestrator',null,'swarm online · 9 agents · 1 human lead · policy: agents assist, humans decide'],
+  [1.6,'msg','orchestrator','*','Sprint 07 brief: RQI quarterly CPR practice for nurses in 9 hospitals. Discover → Define → Develop → Deliver, with a human gate at the end of each.'],
+  [3.4,'msg','orchestrator','researcher','Recruit 12: night nurses 4, day nurses 3, educators 2, managers 2, resus chair 1. Shift-friendly slots, please.'],
+  [5,'tool','researcher',null,'screener.publish("heartline") → 412 volunteers · 58 eligible'],
+  [6.6,'msg','researcher','guardian','The station logs include employee IDs. Pseudonymise before anyone analyses them?'],
+  [8,'pass','guardian','researcher','Pseudonymised 6,200 employee IDs. The re-identification key stays with the hospital, not the swarm.'],
+  [9.6,'msg','researcher','orchestrator','12 sessions booked, three of them at 03:30. A human moderates; I take notes and transcripts.'],
+  [11.2,'tool','researcher',null,'transcribe(P01–P06) · 3 h 13 m audio · speaker-tagged'],
+  [12.8,'msg','researcher','synthesizer','P01–P06 ready. P04: {q:“I got paged mid-session and had to start over. Twice.”}'],
+  [14.2,'think','synthesizer',null,'Early codes forming: interruptions, login friction, feedback overload…'],
+  [15.6,'tool','critic',null,'heuristic_eval(station_flow, nielsen_10, evaluators=3)'],
+  [17.2,'msg','critic','orchestrator','21 violations. Worst: no pause or resume ({err:H3, sev 4}) and no progress indicator ({err:H1, sev 4}).'],
+  [18.8,'msg','critic','prototyper','Also H9: the error says “CAL_ERR 0x2F”. Nobody speaks hex at 3 a.m.'],
+  [20.2,'tool','a11y',null,'audit(wcag="2.2", level="AA", target="station") → 11 failures'],
+  [21.8,'msg','a11y','prototyper','Depth status is red/green only, which fails 1.4.1. The resume button is 18×18 and 2.5.8 needs 24×24.'],
+  [23.4,'tool','evaluator',null,'station_logs(90d) → 6,200 due · {warn:64.0%} on time · {err:17%} abandoned'],
+  [25,'msg','researcher','synthesizer','P07–P12 ready. The last three added 2 codes. P07 needs a step stool to reach 5 cm.'],
+  [26.6,'gate','orchestrator','design-lead','GATE 1 · Discover done: 12 interviews, 3 night shadows, 1,128 survey responses, 21 heuristic violations, 11 accessibility failures. Proceed to Define?'],
+  [28.6,'approve','design-lead','orchestrator','Approved. Add the infant flow; PICU nurses feel forgotten.'],
+
+  [30.6,'msg','orchestrator','synthesizer','Cluster the 263 notes bottom-up. No pre-set buckets.'],
+  [32,'tool','synthesizer',null,'affinity(notes=263) → 6 clusters · largest: access & interruption (24)'],
+  [33.6,'msg','synthesizer','orchestrator','Insight: sessions bunch up because a break is the only quiet time. Sources P01, P04, P05, P12.'],
+  [35.2,'pass','guardian','synthesizer','Evidence check: 4 sources, all verbatim in transcripts ✓'],
+  [36.8,'msg','synthesizer','orchestrator','Insight: nurses distrust the scoring. P10: {q:“The machine says I failed but my patient survived.”}'],
+  [38.4,'block','guardian','synthesizer','Hallucination caught. That quote is not in any transcript. Nearest P10 line: {q:“I like seeing my depth live. I hate seeing my name on a leaderboard.”} Claim sent back.'],
+  [40.2,'msg','synthesizer','guardian','Corrected with the verbatim P10 line plus P02 and P12. The insight is about judgment, not scoring. Confidence 0.58 → 0.83.'],
+  [41.8,'tool','synthesizer',null,'empathy_map(says, does, thinks, feels) · journey(night_nurse, stages=6)'],
+  [43.4,'msg','synthesizer','ideator','POV: night-shift nurses need to finish CPR practice in one uninterrupted 10 minutes near their unit, because breaks are short, pages are constant and restarting feels like failing.'],
+  [45.2,'msg','ideator','synthesizer','HMW let a session survive a page? HMW make feedback coach instead of scold?'],
+  [46.8,'pass','guardian','ideator','Language check: no blame words (“failed”, “insufficient”) ✓ · reading level grade 7 ✓'],
+  [48.4,'tool','evaluator',null,'heart_gsm() → adoption: on-time ≥ 90% · task success: first-try pass ≥ 75%'],
+  [50,'msg','evaluator','orchestrator','Stepped-wedge plan: 12 units, 4 steps of 3 weeks, ICC 0.05. Enough power to detect +10 pp on on-time completion.'],
+  [51.8,'msg','orchestrator','*','Reminder: agents don’t do CPR, nurses do. Every R1 and R2 session is a real nurse on a real manikin.'],
+  [53.6,'gate','orchestrator','design-lead','GATE 2 · Define done: POV, 5 HMW, HEART metrics, stepped-wedge design. Proceed to Develop?'],
+  [55.8,'approve','design-lead','orchestrator','Approved. Drop the word “compliance” from anything nurses see.'],
+  [57.6,'msg','synthesizer','design-lead','Done. “Compliance” is now “practice due” on every nurse-facing screen.'],
+
+  [60.4,'msg','orchestrator','ideator','Go wide. d.school rules: defer judgment, go for volume.'],
+  [61.8,'tool','ideator',null,'brainstorm(hmw=3, rounds="3×7 min") → 64 ideas'],
+  [63.4,'msg','ideator','orchestrator','Idea 31: a “Stayin’ Alive” metronome mode at about 103 bpm. Rule 2 says encourage wild ideas, so it stays.'],
+  [65,'human','design-lead',null,'The educator workshop added 19 ideas. 8 of the top 15 came from nurses, not agents.'],
+  [66.8,'msg','ideator','prototyper','Top 3 by post-it vote and RICE: A badge tap + pause/resume (2,340), B one-cue coaching (1,860), C due-soon manager view (1,410).'],
+  [68.6,'tool','prototyper',null,'figma.generate(screens=19, target="1280×800 touch", tokens="linked")'],
+  [70.2,'msg','a11y','prototyper','Status now uses colour + icon + text ✓ · targets ≥ 44 px for gloved hands ✓'],
+  [71.8,'msg','critic','prototyper','One cue at a time is right, but depth and recoil still fire together. Lead with depth.'],
+  [73.4,'msg','prototyper','critic','Fixed. Cue priority is depth → rate → recoil, one message on screen at a time.'],
+  [75,'tool','evaluator',null,'synthetic_pilot(personas=20, flow="v2")'],
+  [76.6,'msg','evaluator','guardian','Synthetic nurses rated v2 4.9/5. None of them got paged.'],
+  [78.2,'flag','guardian','evaluator','That is the problem. Synthetic users don’t get paged, tired or short. Logged as a hypothesis, not evidence. Test on the unit.'],
+  [80,'msg','orchestrator','researcher','Book R1: 5 nurses, think-aloud, in situ, including one who uses a step stool.'],
+  [81.8,'tool','evaluator',null,'analyze(round="R1", n=5) → 12 issues · {err:sev4×1} {warn:sev3×4} · SUS 69.5'],
+  [83.4,'msg','evaluator','prototyper','3 of 5 missed the resume card after a page. Make it the first thing on screen.'],
+  [85,'tool','prototyper',null,'iterate(fix="sev ≥ 3") → hi-fi v3'],
+  [86.6,'msg','evaluator','orchestrator','R2 with 5 new nurses: 3 new issues, {ok:all sev ≤ 2}. SUS 76.0, median 10:12.'],
+  [88,'gate','orchestrator','design-lead','GATE 3 · Develop done. Station v3 is ready. Proceed to Deliver?'],
+  [89.6,'approve','design-lead','orchestrator','Approved. Pilot on nights first; that’s where it hurts.'],
+
+  [91,'tool','a11y',null,'audit(wcag="2.2", level="AA", sr=["TalkBack","NVDA"]) → {ok:0 failures}'],
+  [92.8,'tool','evaluator',null,'benchmark(n=40, in_situ) → {ok:90%} no restart · 9:40 · SUS {ok:81.3}'],
+  [94.6,'tool','evaluator',null,'pilot.launch(design="stepped-wedge", units=12)'],
+  [96.2,'pass','guardian','evaluator','Balance check on unit size and acuity ✓ · no individual scores visible to peers ✓'],
+  [97.8,'msg','evaluator','orchestrator','Wedges 1–2 are live. Interim look only, no early stopping.'],
+  [99.6,'msg','critic','orchestrator','Zero CAL_ERR codes in two weeks. I almost miss the hex.'],
+  [101.4,'msg','evaluator','orchestrator','All 12 units: on-time {ok:64.0% → 91.2%}. Δ +27.2 pp [22.9, 31.5], p < 0.001. First-try pass 58% → 77%.'],
+  [103.2,'pass','guardian','orchestrator','Equity slices: night shift +31 pp, new grads +24 pp, depth-in-target for nurses under 5′3″ +19 pp. No group worse ✓'],
+  [105,'gate','orchestrator','design-lead','GATE 4 · Deliver ready. Roll out to all 9 hospitals?'],
+  [107,'approve','design-lead','orchestrator','Approved. Ship it, and thank the 62 nurses who tested with us at odd hours.'],
+  [109,'msg','orchestrator','*','Shipped. Monitoring depth-in-target for 2 quarters. Retro notes saved.'],
+  [111,'sys','orchestrator',null,'sprint summary · agents drafted, humans decided · 4/4 gates · 2 guardrail catches · 0 unverified quotes shipped'],
+  [114,'sys','orchestrator',null,'swarm idle · next brief at 02:00']
+];
+return {
+  meta: Object.assign({}, META, {path:'agent-swarm <b>~/rqi-heartline</b> · agents assist, humans decide'}),
+  agents: AGENTS, events: EVENTS,
+  catchNote: 'hallucination · synthetic bias',
+  metrics: [
+    {l:'Real participants', f:t => [[0,0],[9.6,12],[80,17],[86.6,22],[92.8,62]].filter(p => p[0] <= t).pop()[1], n:'interviews, R1, R2, benchmark'},
+    {l:'Evidence-linked insights', f:t => t >= 40.2 ? '100%' : t >= 38.4 ? '50%' : t >= 33.6 ? '100%' : '—', n:'≥ 2 verbatim sources each', cls:v => v === '100%' ? 'good' : v === '50%' ? 'warn' : ''}
+  ],
+  rails: [
+    {l:'Employee IDs pseudonymised', f:t => t >= 8 ? ['6,200 ✓','good'] : ['—','']},
+    {l:'Quotes verified verbatim', f:t => t >= 40.2 ? ['all ✓','good'] : t >= 38.4 ? ['1 failed','bad'] : t >= 35.2 ? ['4 / 4','good'] : ['—','']},
+    {l:'Synthetic output labelled', f:t => t >= 78.2 ? ['hypothesis','warn'] : ['n/a','']},
+    {l:'Blame-free language', f:t => t >= 46.8 ? ['✓','good'] : ['—','']},
+    {l:'Wedge balance', f:t => t >= 96.2 ? ['✓','good'] : ['—','']},
+    {l:'Equity slices', f:t => t >= 103.2 ? ['no group worse','good'] : ['—','']}
+  ]
+};
+})();
+
+/* ============ Agent Swarm renderer (data comes from STORY) ============ */
+(() => {
+const S = STORY, AG = S.agents, A = Object.fromEntries(AG.map(a => [a.id, a]));
+const EV = S.events.map(([at, type, from, to, text]) => ({at, type, from, to, text}));
+const TYPE_LEAD = .7;
+const PHASES = ['Discover · Empathize','Define · POV & HMW','Develop · Ideate, Prototype','Deliver · Test, Ship'];
+const fmtS = s => esc(s).replace(/\{(\w+):([^{}]*)\}/g, '<span class="c-$1">$2</span>');
+
+mountMeta(S.meta);
+$('#roster').innerHTML = AG.map(a => `<li class="ag${a.human ? ' human' : ''}" id="ag-${a.id}"><span class="av" style="background:${a.c}">${a.ab}</span><span class="nm">${a.human ? '' : '@'}${a.id}</span><span class="st">idle</span><span class="tk">${a.role}</span></li>`).join('');
+const count = (t, f) => EV.filter(e => e.at <= t && f(e)).length;
+const METRICS = [
+  {l:'Messages', f:t => count(t, () => true), n:'agent ↔ agent ↔ human'},
+  {l:'Handoffs', f:t => count(t, e => e.to && e.to !== '*'), n:'routed work'},
+  {l:'Guardrail catches', f:t => count(t, e => e.type === 'block' || e.type === 'flag'), n:S.catchNote, cls:v => v ? 'warn' : ''},
+  {l:'Human gates', f:t => count(t, e => e.type === 'approve') + ' / 4', n:'every phase ends with a person', cls:v => v === '4 / 4' ? 'good' : ''},
+  ...S.metrics
+];
+$('#mstrip').innerHTML = METRICS.map((m, i) => `<div class="m"><div class="eyebrow">${m.l}</div><div class="v" id="mv${i}">0</div><div class="n">${m.n}</div></div>`).join('');
+$('#rails').innerHTML = S.rails.map((r, i) => `<li><span class="l">${r.l}</span><span class="r" id="rl${i}">—</span></li>`).join('');
+const GATES = EV.filter(e => e.type === 'gate').map((g, i) => ({open:g.at, ok:EV.filter(e => e.type === 'approve')[i].at, name:['Discover','Define','Develop','Deliver'][i]}));
+$('#gates').innerHTML = GATES.map((g, i) => `<div class="gt" id="gt${i}">G${i+1}<small>${g.name}</small></div>`).join('');
+
+/* graph: orchestrator centre, human on top, specialists on a ring */
+const GW = 320, GH = 220, CX = 160, CY = 116, R = 82;
+const ring = AG.filter(a => a.id !== 'orchestrator' && !a.human), human = AG.find(a => a.human);
+const POS = {orchestrator:{x:CX, y:CY}}; POS[human.id] = {x:CX, y:16};
+ring.forEach((a, i) => { const ang = Math.PI/2 + (i + .5) * 2*Math.PI/ring.length; POS[a.id] = {x:CX + R*1.32*Math.cos(ang), y:CY + R*.98*Math.sin(ang)}; });
+const curve = (a, b) => ({mx:(a.x + b.x)/2 + (b.y - a.y)*.18, my:(a.y + b.y)/2 - (b.x - a.x)*.18});
+const qpt = (a, b, c, u) => ({x:(1-u)*(1-u)*a.x + 2*(1-u)*u*c.mx + u*u*b.x, y:(1-u)*(1-u)*a.y + 2*(1-u)*u*c.my + u*u*b.y});
+function vizGraph(t){
+  let s = `<svg viewBox="0 0 ${GW} ${GH}" role="img" aria-label="Handoff graph between agents">`;
+  AG.forEach(a => { if (a.id !== 'orchestrator'){ const p = POS[a.id]; s += `<line x1="${CX}" y1="${CY}" x2="${p.x}" y2="${p.y}" stroke="var(--line-soft)"/>`; } });
+  /* ambient packets: constant low-level traffic (sync, heartbeats, context) */
+  for (let k = 0; k < 5; k++){
+    const slot = Math.floor(t / 1.6 + k * .37), u = (t / 1.6 + k * .37) % 1;
+    const from = ring[Math.floor(hash(slot * 7 + k) * ring.length)].id, to = hash(slot * 13 + k) < .5 ? 'orchestrator' : ring[Math.floor(hash(slot * 3 + k) * ring.length)].id;
+    if (from === to) continue;
+    const a = POS[from], b = POS[to], c = curve(a, b), p = qpt(a, b, c, u);
+    s += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="1.8" fill="var(--phos-2)" opacity=".55"/>`;
+  }
+  const active = new Set();
+  EV.forEach(e => {
+    if (!e.to || e.at > t || t - e.at > 2) return;
+    const targets = e.to === '*' ? ring.map(a => a.id) : [e.to];
+    const a = POS[e.from], k = clamp((t - e.at)/1.1, 0, 1), col = A[e.from].c;
+    active.add(e.from);
+    targets.forEach(to => {
+      const b = POS[to], c = curve(a, b); active.add(to);
+      s += `<path d="M${a.x} ${a.y} Q${c.mx} ${c.my} ${b.x} ${b.y}" fill="none" stroke="${col}" stroke-width="1.6" opacity="${(1 - (t - e.at)/2).toFixed(2)}"/>`;
+      if (k < 1){ const p = qpt(a, b, c, k); s += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.2" fill="${col}"/>`; }
+    });
+  });
+  AG.forEach(a => {
+    const p = POS[a.id], on = active.has(a.id), r = a.id === 'orchestrator' ? 15 : 12;
+    s += `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${on ? a.c : 'var(--panel-solid)'}" stroke="${a.c}" stroke-width="1.4" ${a.human ? 'stroke-dasharray="3 2"' : ''}/>`;
+    s += `<text x="${p.x}" y="${p.y + 3.5}" font-size="9.5" font-weight="500" text-anchor="middle" fill="${on ? 'var(--bg)' : a.c}">${a.ab}</text>`;
+  });
+  return s + '</svg>';
+}
+
+const stream = $('#stream'), strip = mountStrip($('#strip'), S.meta.strip);
+let shown = 0, stick = true, typingEl = null, lastViz = -1, lastT = -1, lastBg = -1;
+stream.addEventListener('scroll', () => { stick = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 30; });
+const TAGS = {pass:'<span class="tag pass">PASS</span>', block:'<span class="tag block">BLOCKED</span>', flag:'<span class="tag flag">FLAG</span>', gate:'<span class="tag gate">✋ GATE</span>', approve:'<span class="tag ok">✓ APPROVED</span>'};
+function evHTML(e){
+  const f = A[e.from], to = e.to === '*' ? 'all' : e.to ? (A[e.to].human ? e.to : '@' + e.to) : '';
+  const who = `<b style="color:${f.c}">${f.human ? f.id : '@' + f.id}</b>${to ? ' → ' + to : ''}${e.type === 'tool' ? ' · tool' : e.type === 'think' ? ' · thinking' : ''}`;
+  return `<span class="ts">${mmss(e.at)}</span><span class="who">${who}</span><div class="tx">${TAGS[e.type] || ''}${fmtS(e.text)}</div>`;
+}
+function resetStream(){ stream.innerHTML = ''; shown = 0; typingEl = null; stick = true; }
+
+function render(t, force){
+  if (t < lastT) resetStream();
+  lastT = t; strip(t);
+  let added = false;
+  while (shown < EV.length && EV[shown].at <= t){
+    const e = EV[shown++], d = document.createElement('div');
+    d.className = 'ev ' + e.type; d.innerHTML = evHTML(e);
+    if (typingEl){ typingEl.remove(); typingEl = null; }
+    stream.appendChild(d); added = true;
+  }
+  const nx = EV[shown];
+  if (nx && nx.type !== 'sys' && t >= nx.at - TYPE_LEAD && !typingEl){
+    typingEl = document.createElement('div'); typingEl.className = 'typing';
+    typingEl.innerHTML = `<i></i><i></i><i></i> ${A[nx.from].human ? 'design lead is reviewing' : '@' + nx.from + (nx.type === 'tool' ? ' is running a tool' : ' is typing')}`;
+    stream.appendChild(typingEl); added = true;
+  }
+  if (added && stick) stream.scrollTop = stream.scrollHeight;
+  const bq = Math.floor(t / 1.4);
+  if (bq !== lastBg || force){ lastBg = bq; const r = rng(bq * 31 + 7); $('#bgjob').innerHTML = `<b>bg</b> ${esc(pick(r, AMB.station)(r))}`; }
+
+  const vt = Math.floor(t*12);
+  if (vt === lastViz && !force) return;
+  lastViz = vt;
+  $('#graph').innerHTML = vizGraph(t);
+  let working = 0;
+  AG.forEach(a => {
+    let st = 'idle', task = a.role;
+    for (let i = shown - 1; i >= 0; i--){ const e = EV[i]; if (e.from === a.id){ task = plain(e.text); if (t - e.at < 2.6) st = 'working'; break; } }
+    if (st === 'idle'){
+      const r = EV.slice(0, shown).reverse().find(e => (e.to === a.id || (e.to === '*' && !a.human && a.id !== e.from)) && t - e.at < 2.4);
+      if (r) st = r.type === 'block' || r.type === 'flag' ? 'revising' : a.human ? 'reviewing' : 'reading';
+    }
+    if (nx && nx.from === a.id && t >= nx.at - TYPE_LEAD) st = 'working';
+    if (st === 'working') working++;
+    const el = $('#ag-' + a.id);
+    if (el._st !== st){ el._st = st; el.className = 'ag' + (a.human ? ' human' : '') + ' ' + st; el.querySelector('.st').textContent = st; }
+    if (el._tk !== task){ el._tk = task; el.querySelector('.tk').textContent = task; }
+  });
+  $('#nActive').textContent = working + ' working';
+  METRICS.forEach((m, i) => { const v = m.f(t), el = $('#mv'+i); el.textContent = v; el.className = 'v ' + (m.cls ? m.cls(v) : ''); });
+  S.rails.forEach((r, i) => { const [v, c] = r.f(t), el = $('#rl'+i); el.textContent = v; el.className = 'r ' + c; });
+  GATES.forEach((g, i) => { $('#gt'+i).className = 'gt' + (t >= g.ok ? ' ok' : t >= g.open ? ' wait' : ''); });
+  $('#phaseLbl').textContent = PHASES[Math.min(3, Math.floor(t/30))];
+}
+createSim(render, resetStream);
+})();
+
+</script>
+</body>
+</html>
