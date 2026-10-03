@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="author" content="Puneet Arora">
+<meta name="description" content="A 120-second simulation that compiles a product through the Double Diamond: Discover, Define, Develop, Deliver, mapped to the Stanford d.school modes.">
+<title>Double Diamond Compiler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one large compiler terminal on the left; a live double-diamond plot, phase stack and emitted artifacts on the right; transport bar below. Single dark sea-green world by choice. */
+:root{
+  --bg:#03201b; --bg-2:#05271f; --panel:#082f28; --panel-hi:#0c3a31; --line:#185a4c; --line-soft:#0f4439;
+  --sea:#2e8b57; --mint:#6fdcae; --foam:#c4f0df;
+  --cream:#f5edd9; --cream-2:#d3cab3; --muted:#93b3a8;
+  --amber:#f2c46b; --coral:#f4937d; --sky:#93cfe9;
+  --ui:'Roboto','Segoe UI',system-ui,-apple-system,sans-serif;
+  --mono:'Roboto Mono','Cascadia Mono',Consolas,ui-monospace,monospace;
+  --r:10px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--bg);color:var(--cream)}
+body{margin:0;font:400 14px/1.45 var(--ui);padding-inline:16px;padding-block:16px 24px;
+  background:radial-gradient(1000px 520px at 15% -10%,#0b3d33 0%,transparent 60%),var(--bg)}
+.app{max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+
+.chrome{display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r) var(--r) 0 0;background:var(--bg-2);border-bottom:none}
+.dots{display:flex;gap:6px;flex:none}
+.dots i{width:11px;height:11px;border-radius:50%;background:var(--coral);display:block}
+.dots i:nth-child(2){background:var(--amber)} .dots i:nth-child(3){background:var(--mint)}
+.chrome h1{margin:0;font:500 14px/1.2 var(--mono);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chrome h1 b{color:var(--mint);font-weight:500}
+.live{margin-left:auto;display:flex;align-items:center;gap:8px;font:500 11px var(--mono);letter-spacing:.12em;color:var(--muted);text-transform:uppercase;flex:none}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--mint);animation:pulse 1.6s infinite}
+.paused .live i{animation:none;background:var(--amber)}
+@keyframes pulse{50%{opacity:.35}}
+
+.body{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:0;border:1px solid var(--line);border-radius:0 0 var(--r) var(--r);overflow:hidden;margin-top:-12px}
+.term{background:#021a16;min-width:0;display:flex;flex-direction:column;border-right:1px solid var(--line)}
+.log{flex:1 1 0;min-height:640px;overflow-y:auto;padding:14px 18px 18px;font:400 13px/1.6 var(--mono);scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.ln{white-space:pre-wrap;word-break:break-word}
+.ln.cmd{color:var(--foam);margin-top:6px}
+.ln.cmd .ps{color:var(--sea)}
+.ln.stage{margin-top:14px;padding:4px 10px;border-left:3px solid var(--mint);background:var(--panel);color:var(--cream);font-weight:500}
+.ln.sum{color:var(--cream)}
+.caret{display:inline-block;width:8px;height:1.05em;vertical-align:-2px;background:var(--mint);margin-left:1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.c-ok{color:var(--mint)} .c-warn{color:var(--amber)} .c-err{color:var(--coral)} .c-dim{color:var(--muted)}
+.c-k{color:var(--sky)} .c-hl{color:var(--bg);background:var(--mint);padding:0 4px;border-radius:3px}
+.c-q{color:var(--cream-2);font-style:italic} .c-big{color:var(--mint);font-weight:500}
+.statusbar{display:flex;flex-wrap:wrap;gap:4px 18px;padding:7px 18px;border-top:1px solid var(--line);background:var(--bg-2);font:400 11.5px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.statusbar b{color:var(--cream);font-weight:500}
+.statusbar .ok b{color:var(--mint)} .statusbar .wn b{color:var(--amber)}
+
+.side{background:var(--panel);min-width:0;display:flex;flex-direction:column}
+.blk{padding:14px 16px;border-bottom:1px solid var(--line-soft);min-width:0}
+.eyebrow{font:500 10.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.blk h2{margin:2px 0 8px;font:500 16px/1.3 var(--ui);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.blk h2 .count{font:300 26px/1 var(--ui);color:var(--mint);font-variant-numeric:tabular-nums}
+.blk h2 small{font:400 12px var(--mono);color:var(--cream-2)}
+#dd svg{display:block;width:100%;height:auto}
+#dd text{font-family:var(--mono)}
+
+.stages{display:flex;flex-direction:column;gap:8px}
+.st{display:grid;grid-template-columns:72px 1fr 44px;gap:8px;align-items:center;font:400 12px var(--mono)}
+.st .nm{color:var(--cream-2)} .st.on .nm{color:var(--mint)}
+.st .tr{height:6px;border-radius:3px;background:var(--line-soft);overflow:hidden}
+.st .tr i{display:block;height:100%;width:0;background:var(--mint)}
+.st .pc{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.modes{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.mode{font:500 11px var(--mono);padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.mode.on{background:var(--mint);border-color:var(--mint);color:var(--bg)}
+.mode.done{color:var(--cream-2);border-color:var(--sea)}
+
+.files{list-style:none;margin:0;padding:0;font:400 12px/1.5 var(--mono);display:flex;flex-direction:column;gap:2px;max-height:250px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.files li{display:flex;gap:8px;min-width:0;animation:in .3s ease-out}
+.files li .f{color:var(--cream);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.files li .m{margin-left:auto;color:var(--muted);flex:none;font-variant-numeric:tabular-nums}
+.files li .p{color:var(--sea);flex:none}
+.files .empty{color:var(--muted)}
+@keyframes in{from{opacity:0;transform:translateX(4px)}to{opacity:1;transform:none}}
+
+.transport{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--bg-2)}
+.btn{font:500 12px var(--mono);color:var(--cream);background:var(--panel-hi);border:1px solid var(--line);border-radius:7px;padding:6px 10px;cursor:pointer;min-height:32px}
+.btn:hover{border-color:var(--mint)}
+.btn[aria-pressed="true"]{background:var(--mint);color:var(--bg);border-color:var(--mint)}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.speeds{display:flex;gap:4px}
+.scrub{flex:1;min-width:200px;display:flex}
+.scrub input{width:100%;accent-color:var(--mint)}
+.clock{font:500 13px var(--mono);font-variant-numeric:tabular-nums;min-width:96px;text-align:right}
+.kbd{font:400 11px var(--mono);color:var(--muted)}
+
+footer.foot{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:flex-start;justify-content:space-between;color:var(--muted);font:400 12px var(--ui);padding:4px 2px}
+footer details{max-width:760px}
+footer summary{cursor:pointer;color:var(--cream-2)}
+footer ul{margin:8px 0 0;padding-left:18px;line-height:1.6}
+footer .credit{font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase}
+
+@media (max-width:980px){.body{grid-template-columns:1fr}.term{border-right:none;border-bottom:1px solid var(--line)}.log{min-height:480px}}
+@media (max-width:560px){.log{font-size:12px;padding-inline:12px;min-height:440px}.kbd{display:none}.statusbar{padding-inline:12px}}
+@media (prefers-reduced-motion:reduce){.files li{animation:none}.caret,.live i{animation:none}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="chrome">
+    <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+    <h1>uxc build <b>tidewater-booking</b> --framework double-diamond</h1>
+    <div class="live"><i></i><span id="liveTxt">compiling</span></div>
+  </div>
+  <div class="body">
+    <section class="term" aria-label="Compiler output">
+      <div class="log" id="log"></div>
+      <div class="statusbar" id="status"></div>
+    </section>
+    <aside class="side">
+      <div class="blk">
+        <div class="eyebrow">Options in play · live</div>
+        <h2><span class="count" id="count">1</span><small id="unit">brief</small></h2>
+        <div id="dd"></div>
+      </div>
+      <div class="blk">
+        <div class="eyebrow">Phases · d.school modes</div>
+        <div class="stages" id="stages" style="margin-top:8px"></div>
+        <div class="modes" id="modes"></div>
+      </div>
+      <div class="blk" style="border-bottom:none;flex:1">
+        <div class="eyebrow" style="margin-bottom:8px">Artifacts emitted · <span id="nfiles">0</span></div>
+        <ul class="files" id="files"></ul>
+      </div>
+    </aside>
+  </div>
+
+  <div class="transport" role="group" aria-label="Simulation controls">
+    <button class="btn" id="play" aria-label="Pause simulation">❚❚ Pause</button>
+    <button class="btn" id="restart" aria-label="Restart from zero">⟲ Restart</button>
+    <div class="speeds" role="group" aria-label="Playback speed">
+      <button class="btn" data-speed="1" aria-pressed="true">1×</button>
+      <button class="btn" data-speed="2" aria-pressed="false">2×</button>
+      <button class="btn" data-speed="4" aria-pressed="false">4×</button>
+    </div>
+    <div class="scrub"><input id="scrub" type="range" min="0" max="120" step="0.1" value="0" aria-label="Seek within the 2-minute cycle"></div>
+    <div class="clock" id="clock">00:00 / 02:00</div>
+    <span class="kbd">space · ← → · 1 2 4</span>
+  </div>
+
+  <footer class="foot">
+    <details>
+      <summary>Methods &amp; sources: the project data is simulated, the methods and thresholds are real</summary>
+      <ul>
+        <li>Double Diamond: UK Design Council (2005), “design the right thing, then design the thing right”, as taught by Nielsen Norman Group.</li>
+        <li>Stanford d.school modes and methods (Bootcamp Bootleg): beginner’s mindset, What? How? Why?, extreme users, empathy map, POV madlib, “How might we”, the seven brainstorm rules, post-it voting, Wizard of Oz prototyping.</li>
+        <li>Saturation around 12 interviews: Guest, Bunce &amp; Johnson (2006). Survey margin of error at 95%: 1.96 × √(0.25 / n).</li>
+        <li>Think-aloud rounds of 5 users (Nielsen &amp; Landauer). About 40 users for quantitative benchmarks (NN/g). SUS curved grades (Sauro &amp; Lewis). Adjusted-Wald intervals.</li>
+        <li>HEART and Goals–Signals–Metrics: Google (2010). RICE: Intercom. Crazy 8s: Google Ventures design sprint.</li>
+        <li>A/B: two-proportion z-test, α 0.05, power 0.80, SRM χ² check. Accessibility: WCAG 2.2 Level AA.</li>
+      </ul>
+    </details>
+    <span class="credit">Built by Puneet Arora</span>
+  </footer>
+</div>
+
+<script>
+/* ============ engine ============ */
+const DUR = 120, CPS = 42;
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = s => esc(s).replace(/\{(\w+):([^{}]*)\}/g, '<span class="c-$1">$2</span>');
+const mmss = s => { s = Math.max(0, Math.floor(s)); return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0'); };
+const PROMPT = '<span class="ps">$ </span>';
+const barTxt = (label, p, done) => {
+  const n = 22, f = Math.round(p*n);
+  return fmt(`${label} {ok:${'█'.repeat(f)}}{dim:${'░'.repeat(n-f)}} ${String(Math.round(p*100)).padStart(3)}%`) + (p >= 1 && done ? '  ' + fmt(done) : '');
+};
+
+function script(name){
+  const L = []; let t = 0;
+  const b = {
+    at(x){ if (t > x + 0.01) console.warn(`[${name}] overrun: ${t.toFixed(2)} > ${x}`); t = x; return b; },
+    cmd(x, p = .35){ L.push({at:t, k:'cmd', x}); t += x.length / CPS + p; return b; },
+    o(x, d = .42, k = ''){ L.push({at:t, x, k}); t += d; return b; },
+    bar(label, d, done){ L.push({at:t, d, fn: p => barTxt(label, p, done)}); t += d + .3; return b; },
+    lines(){ if (t > DUR - 0.3) console.warn(`[${name}] runs past loop end: ${t.toFixed(2)}`); return L; }
+  };
+  return b;
+}
+class Log {
+  constructor(el, lines, max = 400){ this.el = el; this.s = lines; this.max = max; this.stick = true;
+    el.addEventListener('scroll', () => { this.stick = el.scrollHeight - el.scrollTop - el.clientHeight < 30; });
+    this.reset(); }
+  reset(){ this.el.innerHTML = ''; this.i = 0; this.live = []; this.lastT = -1; this.stick = true; }
+  render(t){
+    if (t < this.lastT) this.reset();
+    this.lastT = t; let added = false;
+    while (this.i < this.s.length && this.s[this.i].at <= t){
+      const ln = this.s[this.i++], d = document.createElement('div');
+      d.className = 'ln ' + (ln.k || ''); this.el.appendChild(d); added = true;
+      if (ln.k === 'cmd' || ln.fn) this.live.push({ln, d}); else d.innerHTML = fmt(ln.x);
+    }
+    this.live = this.live.filter(({ln, d}) => {
+      if (ln.fn){ const p = clamp((t - ln.at)/ln.d, 0, 1); d.innerHTML = ln.fn(p); return p < 1; }
+      const n = Math.floor((t - ln.at) * CPS);
+      if (n >= ln.x.length){ d.innerHTML = PROMPT + esc(ln.x); return false; }
+      d.innerHTML = PROMPT + esc(ln.x.slice(0, n)) + '<span class="caret"></span>'; return true;
+    });
+    while (this.el.children.length > this.max) this.el.firstChild.remove();
+    if ((added || this.live.length) && this.stick) this.el.scrollTop = this.el.scrollHeight;
+  }
+}
+
+/* ============ the build script ============ */
+const b = script('compiler');
+b.at(.2).o('{big:uxc 4.2.0} {dim:· double-diamond compiler}')
+ .o('{dim:spec  Design Council (2005) · NN/g · Stanford d.school modes}')
+ .o('{dim:brief} tidewater-booking.brief.md {dim:· patient appointment booking}')
+ .o('{dim:target} completion ≥ 65% live {dim:·} SUS ≥ 75 {dim:·} WCAG 2.2 AA')
+ .o('{dim:constraints} 8 weeks {dim:·} 1 squad {dim:·} health-data privacy', .6);
+
+b.at(3).o('[1/4] DISCOVER  ◁ diverge   d.school: Empathize', .5, 'stage')
+ .cmd('uxc discover --mindset beginner --stakeholders 6')
+ .o('  ├─ assumptions logged {k:19} {dim:· each one becomes a research question}')
+ .o('  ├─ {warn:HiPPO detected:} “make the logo bigger” {dim:→ parked in backlog}', .55)
+ .cmd('uxc research plan --questions 5 --methods 4')
+ .o('  ├─ RQ1 why do starters abandon at the insurance step?')
+ .o('  ├─ RQ2 who books, and for whom?')
+ .o('  └─ methods: interviews · contextual inquiry · survey · analytics')
+ .bar('  recruiting  ', 2.2, '{ok:12/12 scheduled} {dim:· 318 screened}')
+ .cmd('uxc empathize --interviews 12 --what-how-why')
+ .bar('  interviews  ', 4.2, '{ok:248 notes · 61 codes}')
+ .o('  ├─ {q:“I book for my mum while I’m on hold with the clinic.”} {dim:P01}')
+ .o('  ├─ {q:“My card says Blue PPO Plus. Your list says PPO.”} {dim:P02}')
+ .o('  ├─ saturation at P10 {dim:· last 3 interviews added 2 codes}')
+ .o('  └─ {k:extreme user} caregiver of 3 {dim:· books 9× a month}');
+b.at(19.6).cmd('uxc observe --context front-desk --hours 3')
+ .o('  └─ front desk re-keys {warn:62%} of online bookings by phone')
+ .cmd('uxc survey --n 412')
+ .o('  └─ ±4.8% margin at 95% {dim:·} 38% book for someone else')
+ .cmd('uxc analytics --funnel booking --window 30d')
+ .o('  └─ 18,420 starts {dim:·} {warn:58.4%} complete {dim:·} {err:−27%} at insurance')
+ .o('{warn:warning} W001 assumption “it’s a mobile problem” contradicted {dim:· 61% of abandons are desktop}', .7);
+b.at(29.2).o('{ok:✓ discover}  186 observations {dim:·} 0 errors {dim:·} 1 warning', .8);
+
+b.at(30.2).o('[2/4] DEFINE    ▷ converge  d.school: Define', .5, 'stage')
+ .cmd('uxc synthesize --affinity --bottom-up')
+ .bar('  clustering  ', 2.4, '{ok:6 clusters} {dim:· largest: insurance & plan names (23)}')
+ .cmd('uxc empathy-map --say --do --think --feel')
+ .o('  ├─ SAYS “the phone is faster”  DOES calls to confirm (7/12)')
+ .o('  └─ THINKS “did it actually book?”  FEELS anxious at insurance')
+ .cmd('uxc journey --persona caregiver --stages 7')
+ .o('  └─ low point {err:−2.4} at insurance {dim:· 3 moments that matter}')
+ .cmd('uxc pov --madlib "[user] needs [need] because [insight]"')
+ .o('  └─ {hl:POV} Caregivers booking for family need to finish insurance and visit type in one pass, because they are on the phone juggling two calendars.', 1.6)
+ .cmd('uxc hmw --from pov --count 5')
+ .o('  ├─ HMW make insurance a 10-second step instead of a gate?')
+ .o('  ├─ HMW let someone book for a parent without sharing passwords?')
+ .o('  └─ HMW help people pick a visit type without medical jargon?');
+b.at(50.5).cmd('uxc metrics --heart --goals-signals-metrics')
+ .o('  ├─ {k:task success} → completion → ≥ 65% live, ≤ 4:00 median')
+ .o('  ├─ {k:happiness} → SUS → ≥ 75 {dim:(average is 68)}')
+ .o('  └─ guardrails: support calls · cancellations · error rate');
+b.at(58.8).o('{ok:✓ define}  1 POV {dim:·} 5 HMW {dim:·} 6 metrics {dim:·} gate signed', .8);
+
+b.at(60.2).o('[3/4] DEVELOP   ◁ diverge   d.school: Ideate → Prototype', .5, 'stage')
+ .cmd('uxc ideate --brainstorm --rules dschool')
+ .o('  ├─ defer judgment · encourage wild ideas · build on the ideas of others')
+ .o('  ├─ stay focused · one conversation at a time · be visual · go for quantity')
+ .bar('  ideas       ', 2.6, '{ok:64 ideas} {dim:in 21 min}')
+ .cmd('uxc crazy8s --designers 6 --minutes 8')
+ .o('  └─ 48 sketches {dim:· 3 genuinely unhinged, all kept}')
+ .cmd('uxc select --post-it-vote --rice')
+ .o('  ├─ A  profile for someone else   RICE {ok:1,680} {dim:◆ most likely to delight}')
+ .o('  ├─ B  insurance card scan (OCR)   RICE {ok:1,220} {dim:◆ rational choice}')
+ .o('  ├─ C  plain-language visit type  RICE {ok:1,200}')
+ .o('  └─ {dim:long shot parked: “insurance by selfie”}');
+b.at(74.4).cmd('uxc prototype --paper --wizard-of-oz')
+ .o('  └─ OCR played by a human behind the curtain {dim:· nobody noticed}')
+ .cmd('uxc test --round R1 --n 5 --think-aloud')
+ .bar('  sessions    ', 2.2, '{warn:14 issues} {dim:· sev4×2 sev3×5 · SUS 68.0}')
+ .o('{warn:warning} W002 4/5 picked the wrong plan from the dropdown {dim:→ iterate}', .6)
+ .cmd('uxc iterate --fix "sev>=3" && uxc prototype --hi-fi')
+ .cmd('uxc test --round R2 --n 5')
+ .o('  └─ 4 new issues {ok:all sev ≤ 2} {dim:·} SUS 74.6 {dim:·} 3:47 median');
+b.at(88.8).o('{ok:✓ develop}  64 ideas → 3 concepts → 1 direction {dim:·} 2 rounds', .8);
+
+b.at(90.2).o('[4/4] DELIVER   ▷ converge  d.school: Test → Ship', .5, 'stage')
+ .cmd('uxc a11y --wcag 2.2 --level AA --screen-readers')
+ .bar('  audit       ', 1.8, '{ok:0 failures} {dim:(was 9) · NVDA + VoiceOver pass}')
+ .cmd('uxc benchmark --n 40 --unmoderated')
+ .bar('  benchmark   ', 2.2, '{ok:80% success} {dim:CI 65–90 ·} 3:18 {dim:·} SUS {ok:79.6}')
+ .cmd('uxc experiment --ab --n 4420 --alpha .05 --power .8')
+ .bar('  traffic     ', 3, '{dim:control} 58.4% {dim:· variant} {ok:66.9%}')
+ .o('  ├─ Δ {ok:+8.5 pp} {dim:· 95% CI [6.5, 10.5] · p < 0.001}')
+ .o('  └─ SRM χ² p = 0.62 {ok:✓} {dim:·} support calls {ok:−31%}')
+ .o('{warn:warning} W003 1 sev-3 issue deferred {dim:→ backlog #482, owner assigned}', .6)
+ .cmd('uxc ship --rollout 100% --monitor 14d');
+b.at(111.4).o('{ok:✓ deliver}  1 solution shipped', .5)
+ .o('{dim:────────────────────────────────────────────────}', .2, 'sum')
+ .o('{big:BUILD SUCCESSFUL} in 2m 00s', .3, 'sum')
+ .o('186 observations → 1 POV → 64 ideas → {ok:1 shipped}', .3, 'sum')
+ .o('0 errors {dim:·} 3 warnings {dim:·} 0 accessibility failures', .3, 'sum')
+ .o('outcome  completion {ok:+8.5 pp} {dim:·} time {ok:−51%} {dim:·} SUS {ok:+18.3}', .3, 'sum')
+ .o('{dim:next     uxc measure --heart --monthly}', .3, 'sum')
+ .o('{dim:watching for the next brief… restarting at 02:00}', .3, 'sum');
+const LINES = b.lines();
+
+/* ============ side panels ============ */
+const STAGES = [['Discover',0,30],['Define',30,30],['Develop',60,30],['Deliver',90,23]];
+const MODES = [['Empathize',3,30],['Define',30,60],['Ideate',60,74.4],['Prototype',74.4,90],['Test',90,108],['Ship',108,113]];
+const FILES = [
+  [1,'brief.md','3 KB'],[6,'assumptions.csv','19 rows'],[8,'research-plan.md','5 RQs'],[10.5,'screener.form','318 resp'],
+  [16.5,'transcripts/','12 files'],[17,'codebook.csv','61 codes'],[22.5,'survey-results.csv','412 rows'],[26.5,'funnel-30d.json','6 steps'],
+  [34.5,'affinity-map.fig','248 notes'],[37.5,'empathy-map.fig','4 quads'],[40,'journey-caregiver.fig','7 stages'],[45.5,'pov.txt','1 line'],
+  [49,'hmw.md','5 Qs'],[54,'heart-metrics.md','6 metrics'],[66.5,'ideas.csv','64 rows'],[69,'sketches/','48 files'],
+  [73,'concepts.fig','A · B · C'],[76,'paper-proto.jpg','14 screens'],[80.5,'r1-findings.md','14 issues'],[86.5,'prototype-hifi.fig','23 frames'],
+  [88.5,'r2-findings.md','4 issues'],[93.5,'a11y-audit.html','0 fails'],[97.5,'benchmark-n40.csv','40 rows'],[104.5,'ab-readout.md','p<0.001'],
+  [111.5,'release-notes.md','v2.0']
+];
+const WARN_AT = LINES.filter(l => /^\{warn:warning\}/.test(l.x || "")).map(l => l.at);
+
+function options(t){
+  const ph = Math.min(3, Math.floor(t/30)), p = (t - ph*30)/30;
+  const wob = 1 + .03*Math.sin(t*2.3) + .02*Math.sin(t*5.1);
+  let n, a, unit;
+  if (ph === 0){ n = 1 + 185*clamp(p/.97,0,1); unit = 'observations'; }
+  else if (ph === 1){ n = 186 - 185*clamp(p/.97,0,1); unit = n < 2 ? 'point of view' : 'insights → POV'; }
+  else if (ph === 2){ n = 1 + 63*clamp(p/.97,0,1); unit = 'ideas & variants'; }
+  else { n = 64 - 63*clamp(p/.8,0,1); unit = n < 2 ? 'shipped solution' : 'candidates → ship'; }
+  a = (ph < 2 ? n/186 : n/64);
+  if (n > 1.5) a *= wob;
+  if (t < 3){ n = 1; unit = 'brief'; a = 0; }
+  return {n: Math.round(n), a: clamp(a, 0, 1.06), unit};
+}
+function vizDD(t){
+  const W = 360, H = 170, cy = 84, A = 58, X0 = 8, X1 = W - 8;
+  const x = s => X0 + s/DUR*(X1 - X0);
+  let top = '', bot = '';
+  const end = Math.max(.25, t);
+  for (let s = 0; s <= end; s += .25){ const o = options(s); top += `${x(s).toFixed(1)},${(cy - o.a*A).toFixed(1)} `; bot = `${x(s).toFixed(1)},${(cy + o.a*A).toFixed(1)} ` + bot; }
+  let g = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Double diamond drawn by the number of options in play over time">`;
+  g += `<path d="M${x(0)} ${cy} L${x(30)} ${cy-A} L${x(60)} ${cy} L${x(90)} ${cy-A} L${x(120)} ${cy} L${x(90)} ${cy+A} L${x(60)} ${cy} L${x(30)} ${cy+A} Z" fill="none" stroke="var(--line)" stroke-dasharray="3 3"/>`;
+  [30,60,90].forEach(s => g += `<line x1="${x(s)}" y1="14" x2="${x(s)}" y2="${H-22}" stroke="var(--line-soft)"/>`);
+  g += `<polygon points="${top}${bot}" fill="rgba(46,139,87,.55)" stroke="var(--mint)" stroke-width="1.2" stroke-linejoin="round"/>`;
+  g += `<line x1="${x(0)}" y1="${cy}" x2="${x(120)}" y2="${cy}" stroke="var(--line)" />`;
+  g += `<text x="${x(30)}" y="10" font-size="9" fill="var(--muted)" text-anchor="middle">design the right thing</text>`;
+  g += `<text x="${x(90)}" y="10" font-size="9" fill="var(--muted)" text-anchor="middle">design the thing right</text>`;
+  ['Discover','Define','Develop','Deliver'].forEach((n,i) => g += `<text x="${x(15+i*30)}" y="${H-8}" font-size="10" fill="${Math.floor(t/30)===i ? 'var(--mint)' : 'var(--cream-2)'}" text-anchor="middle">${n}</text>`);
+  g += `<text x="${x(60)}" y="${H-22+10}" font-size="8" fill="var(--muted)" text-anchor="middle">POV</text>`;
+  const o = options(t);
+  g += `<line x1="${x(t)}" y1="16" x2="${x(t)}" y2="${H-24}" stroke="var(--amber)" stroke-width="1.2"/>`;
+  g += `<circle cx="${x(t)}" cy="${cy - o.a*A}" r="3" fill="var(--amber)"/><circle cx="${x(t)}" cy="${cy + o.a*A}" r="3" fill="var(--amber)"/>`;
+  return g + '</svg>';
+}
+
+$('#stages').innerHTML = STAGES.map(([n],i) => `<div class="st" id="st${i}"><span class="nm">${n}</span><span class="tr"><i></i></span><span class="pc">0%</span></div>`).join('');
+$('#modes').innerHTML = MODES.map(([n],i) => `<span class="mode" id="md${i}">${n}</span>`).join('');
+
+const log = new Log($('#log'), LINES);
+let lastViz = -1, filesShown = -1, modeState = [], stageState = [];
+function render(t, force){
+  log.render(t);
+  const vt = Math.floor(t*10);
+  if (vt !== lastViz || force){
+    lastViz = vt;
+    $('#dd').innerHTML = vizDD(t);
+    const o = options(t); $('#count').textContent = o.n; $('#unit').textContent = o.unit;
+  }
+  STAGES.forEach(([n,s,len],i) => {
+    const p = clamp((t - s)/len, 0, 1), el = $('#st'+i), pc = Math.floor(p*100);
+    if (stageState[i] === pc) return; stageState[i] = pc;
+    el.querySelector('i').style.width = pc + '%'; el.querySelector('.pc').textContent = pc + '%';
+    el.classList.toggle('on', p > 0 && p < 1);
+  });
+  MODES.forEach(([n,a,z],i) => {
+    const st = t >= z ? 2 : t >= a ? 1 : 0;
+    if (modeState[i] === st) return; modeState[i] = st;
+    const el = $('#md'+i); el.classList.toggle('on', st === 1); el.classList.toggle('done', st === 2);
+  });
+  const nf = FILES.filter(f => f[0] <= t).length;
+  if (nf !== filesShown){
+    const ul = $('#files');
+    if (nf < filesShown || filesShown < 0) ul.innerHTML = '';
+    if (nf === 0) ul.innerHTML = '<li class="empty">nothing yet · the brief is being read</li>';
+    else {
+      const em = ul.querySelector('.empty'); if (em) em.remove();
+      for (let i = Math.max(0, ul.children.length); i < nf; i++){
+        const [, f, m] = FILES[i];
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="p">+</span><span class="f">${esc(f)}</span><span class="m">${esc(m)}</span>`;
+        ul.appendChild(li);
+      }
+      ul.scrollTop = ul.scrollHeight;
+    }
+    filesShown = nf; $('#nfiles').textContent = nf;
+  }
+  const warns = WARN_AT.filter(w => w <= t).length, ph = Math.min(3, Math.floor(t/30));
+  $('#status').innerHTML = `<span>phase <b>${ph+1}/4</b></span><span class="ok">errors <b>0</b></span><span class="wn">warnings <b>${warns}</b></span><span>artifacts <b>${nf}</b></span><span>elapsed <b>${mmss(t)}</b></span>`;
+  $('#clock').textContent = mmss(t) + ' / 02:00';
+  if (!scrubbing) $('#scrub').value = t.toFixed(1);
+}
+
+/* ============ clock & controls ============ */
+const sim = { t: 0, speed: 1, playing: true, loops: 0 };
+let last = null, scrubbing = false;
+function hardReset(){ stageState = []; modeState = []; filesShown = -1; }
+function frame(ts){
+  if (last === null) last = ts;
+  const dt = Math.min(.1, (ts - last)/1000); last = ts;
+  if (sim.playing && !scrubbing){
+    sim.t += dt * sim.speed;
+    if (sim.t >= DUR){ sim.t = 0; sim.loops++; hardReset(); render(0, true); }
+  }
+  render(sim.t);
+  requestAnimationFrame(frame);
+}
+function seek(t){ sim.t = clamp(t, 0, DUR - .01); hardReset(); render(sim.t, true); }
+function setPlaying(p){ sim.playing = p; const bt = $('#play'); bt.textContent = p ? '❚❚ Pause' : '▶ Play'; bt.setAttribute('aria-label', p ? 'Pause simulation' : 'Play simulation'); $('#app').classList.toggle('paused', !p); $('#liveTxt').textContent = p ? 'compiling' : 'paused'; }
+function setSpeed(s){ sim.speed = s; document.querySelectorAll('[data-speed]').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.speed === s))); }
+$('#play').onclick = () => setPlaying(!sim.playing);
+$('#restart').onclick = () => { seek(0); setPlaying(true); };
+document.querySelectorAll('[data-speed]').forEach(x => x.onclick = () => setSpeed(+x.dataset.speed));
+const sc = $('#scrub');
+sc.addEventListener('input', () => { scrubbing = true; seek(+sc.value); });
+sc.addEventListener('change', () => { scrubbing = false; });
+sc.addEventListener('pointerup', () => { scrubbing = false; });
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input,button') && e.key === ' ') return;
+  if (e.key === ' '){ e.preventDefault(); setPlaying(!sim.playing); }
+  else if (e.key === 'ArrowRight') seek(sim.t + 5);
+  else if (e.key === 'ArrowLeft') seek(sim.t - 5);
+  else if (['1','2','4'].includes(e.key)) setSpeed(+e.key);
+});
+window.__sim = { seek, setSpeed, setPlaying, get t(){ return sim.t; }, get loops(){ return sim.loops; } };
+render(0, true);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
