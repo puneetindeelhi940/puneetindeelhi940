@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Laerdal UX screensaver (.scr) — a thin WinForms + Edge WebView2 host that plays
+    ../screensaver.html full screen on every monitor. The portal files are embedded
+    in the executable, so the single .scr file is all you need to install.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>LaerdalUX</AssemblyName>
+    <RootNamespace>LaerdalUx.Screensaver</RootNamespace>
+    <Version>1.0.0</Version>
+    <Product>Laerdal UX Discovery Screensaver</Product>
+    <Authors>Puneet Arora</Authors>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <!-- Allows `dotnet build` on Linux/macOS for CI validation; Windows ignores it. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- Single self-contained file: no .NET install needed on the target PC. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+  </ItemGroup>
+
+  <!-- Embed the portal (pages + assets) so the screensaver works offline. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\*.html" LogicalName="portal/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\assets\**\*" LogicalName="portal/assets/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

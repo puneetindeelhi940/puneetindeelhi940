@@ -1,0 +1,17 @@
+Laerdal UX Discovery Screensaver
+================================
+
+1. Copy LaerdalUX.scr to a permanent folder, e.g. C:\Users\<you>\LaerdalUX\
+2. Right-click LaerdalUX.scr -> Install.
+   (Or: Settings -> Personalisation -> Lock screen -> Screen saver -> pick "LaerdalUX".)
+3. Set "Wait" to the number of minutes you like. Use "Preview" to try it.
+
+Requirements: Windows 10/11 x64 and the Microsoft Edge WebView2 Runtime
+(built into Windows 11; most Windows 10 PCs have it already).
+
+Move the mouse or press any key to exit.
+
+The file is not code-signed. Windows SmartScreen or IT policy may warn or
+block it; ask IT to allow it if needed.
+
+Built by Puneet Arora.

@@ -1,0 +1,38 @@
+# Builds the Laerdal UX screensaver (LaerdalUX.scr) on a real Windows runner.
+# Download it from the run's "Artifacts" section.
+name: Build UX screensaver
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'not-live-yet/**'
+      - '.github/workflows/build-screensaver.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish single-file executable
+        working-directory: not-live-yet/screensaver-wrapper
+        run: dotnet publish -c Release -o out
+
+      - name: Package as .scr
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item not-live-yet/screensaver-wrapper/out/LaerdalUX.exe dist/LaerdalUX.scr
+          Copy-Item not-live-yet/screensaver-wrapper/INSTALL.txt dist/INSTALL.txt
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LaerdalUX-screensaver
+          path: dist/
+          retention-days: 30
